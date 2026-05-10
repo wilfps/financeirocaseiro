@@ -55,15 +55,14 @@ begin
     coalesce(new.raw_user_meta_data ->> 'phoneNumber', ''),
     coalesce(new.email, ''),
     coalesce((new.raw_user_meta_data ->> 'birthDate')::date, current_date),
-    coalesce(new.raw_user_meta_data ->> 'role', 'user')
+    'user'
   )
   on conflict (id) do update set
     name = excluded.name,
     phone_ddd = excluded.phone_ddd,
     phone_number = excluded.phone_number,
     email = excluded.email,
-    birth_date = excluded.birth_date,
-    role = excluded.role;
+    birth_date = excluded.birth_date;
 
   return new;
 end;
@@ -98,11 +97,6 @@ to authenticated
 with check (id = auth.uid());
 
 drop policy if exists "profiles_update_own" on public.profiles;
-create policy "profiles_update_own"
-on public.profiles for update
-to authenticated
-using (id = auth.uid())
-with check (id = auth.uid());
 
 drop policy if exists "transactions_select_own" on public.transactions;
 create policy "transactions_select_own"

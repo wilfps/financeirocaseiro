@@ -74,6 +74,25 @@ Banco Supabase conectado.
 
 Ai os cadastros, senhas, boletos e lancamentos ficam salvos fora do navegador.
 
+## Seguranca basica aplicada
+
+- A chave usada no frontend e apenas a publishable/anon key do Supabase.
+- Row Level Security fica ativo nas tabelas.
+- Usuario comum so le seus proprios lancamentos e boletos.
+- Cadastro pelo site sempre cria conta normal.
+- Criacao de ADM pelo frontend foi bloqueada.
+- Headers de seguranca foram adicionados em `vercel.json`.
+
+Para transformar uma conta em ADM, rode manualmente no SQL Editor trocando o email:
+
+```sql
+update public.profiles
+set role = 'admin'
+where email = 'seu-email@exemplo.com';
+```
+
+Depois saia e entre de novo no site para carregar o menu ADM.
+
 ## Proximos passos para virar produto real
 
 1. Criar repositorio no GitHub.

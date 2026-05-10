@@ -305,8 +305,6 @@ function App() {
     email: '',
     password: '',
     birthDate: '',
-    role: 'user' as UserRole,
-    adminCode: '',
   })
 
   const [resetForm, setResetForm] = useState({
@@ -535,11 +533,6 @@ function App() {
       return
     }
 
-    if (signupForm.role === 'admin' && signupForm.adminCode !== 'FINFLOW-ADM') {
-      setAuthMessage('Codigo de ADM invalido.')
-      return
-    }
-
     const newUser: AppUser = {
       id: crypto.randomUUID(),
       name: signupForm.name.trim(),
@@ -548,7 +541,7 @@ function App() {
       email: signupForm.email.trim().toLowerCase(),
       password: signupForm.password,
       birthDate: brToIso(signupForm.birthDate),
-      role: signupForm.role,
+      role: 'user',
       createdAt: new Date().toISOString(),
     }
 
@@ -562,7 +555,6 @@ function App() {
             phoneDdd: newUser.phoneDdd,
             phoneNumber: newUser.phoneNumber,
             birthDate: newUser.birthDate,
-            role: newUser.role,
           },
         },
       })
@@ -591,15 +583,13 @@ function App() {
         email: '',
         password: '',
         birthDate: '',
-        role: 'user',
-        adminCode: '',
       })
       return
     }
 
     setUsers([newUser, ...users])
     setSessionId(newUser.id)
-    setActiveTab(newUser.role === 'admin' ? 'admin' : 'dashboard')
+    setActiveTab('dashboard')
     setSignupForm({
       name: '',
       phoneDdd: '',
@@ -607,8 +597,6 @@ function App() {
       email: '',
       password: '',
       birthDate: '',
-      role: 'user',
-      adminCode: '',
     })
   }
 
@@ -1008,31 +996,10 @@ function App() {
                   }
                 />
               </label>
-              <div className="segmented">
-                <button
-                  className={signupForm.role === 'user' ? 'selected' : ''}
-                  type="button"
-                  onClick={() => setSignupForm({ ...signupForm, role: 'user' })}
-                >
-                  Conta normal
-                </button>
-                <button
-                  className={signupForm.role === 'admin' ? 'selected' : ''}
-                  type="button"
-                  onClick={() => setSignupForm({ ...signupForm, role: 'admin' })}
-                >
-                  ADM
-                </button>
-              </div>
-              {signupForm.role === 'admin' && (
-                <input
-                  placeholder="Codigo ADM"
-                  value={signupForm.adminCode}
-                  onChange={(event) =>
-                    setSignupForm({ ...signupForm, adminCode: event.target.value })
-                  }
-                />
-              )}
+              <p className="security-note">
+                Contas novas entram como usuario normal. Acesso ADM so e liberado
+                manualmente pelo dono no banco.
+              </p>
               <button className="primary-action full" type="button" onClick={signUp}>
                 <UserPlus size={18} /> Criar cadastro
               </button>
