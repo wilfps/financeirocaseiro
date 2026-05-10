@@ -58,6 +58,15 @@ type Bill = {
   paid: boolean
 }
 
+type Feedback = {
+  id: string
+  userId: string
+  userName: string
+  userEmail: string
+  message: string
+  createdAt: string
+}
+
 type ReceiptDraft = {
   fileName: string
   guessTitle: string
@@ -102,6 +111,15 @@ type RemoteBill = {
   amount: number | string
   due_date: string
   paid: boolean
+}
+
+type RemoteFeedback = {
+  id: string
+  user_id: string
+  user_name: string
+  user_email: string
+  message: string
+  created_at: string
 }
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -245,6 +263,17 @@ function billFromRemote(bill: RemoteBill): Bill {
   }
 }
 
+function feedbackFromRemote(feedback: RemoteFeedback): Feedback {
+  return {
+    id: feedback.id,
+    userId: feedback.user_id,
+    userName: feedback.user_name,
+    userEmail: feedback.user_email,
+    message: feedback.message,
+    createdAt: feedback.created_at,
+  }
+}
+
 function fallbackProfileFromEmail(userId: string, email?: string | null): AppUser {
   const safeEmail = email ?? ''
 
@@ -305,6 +334,10 @@ function App() {
     [],
   )
   const [bills, setBills] = useLocalStorage<Bill[]>('finflow-bills', [])
+  const [feedbacks, setFeedbacks] = useLocalStorage<Feedback[]>(
+    'finflow-feedbacks',
+    [],
+  )
   const [news, setNews] = useState<NewsItem[]>(fallbackNews)
   const [newsStatus, setNewsStatus] = useState('Atualizando noticias...')
   const [authView, setAuthView] = useState<AuthView>('login')
@@ -317,12 +350,18 @@ function App() {
   )
   const [activeTab, setActiveTab] = useState('dashboard')
   const [receiptDraft, setReceiptDraft] = useState<ReceiptDraft | null>(null)
+  const [suggestionText, setSuggestionText] = useState('')
+  const [suggestionMessage, setSuggestionMessage] = useState('')
 
   const currentUser = users.find((user) => user.id === sessionId) ?? null
   const userTransactions = transactions.filter(
     (transaction) => transaction.userId === currentUser?.id,
   )
   const userBills = bills.filter((bill) => bill.userId === currentUser?.id)
+  const visibleFeedbacks =
+    currentUser?.role === 'admin'
+      ? feedbacks
+      : feedbacks.filter((feedback) => feedback.userId === currentUser?.id)
 
   const [loginForm, setLoginForm] = useState({
     email: '',
@@ -443,6 +482,25 @@ function App() {
     }
   }
 
+  async function loadRemoteFeedback(profile: AppUser) {
+    if (!supabase) return
+
+    let query = supabase
+      .from('feedback')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (profile.role !== 'admin') {
+      query = query.eq('user_id', profile.id)
+    }
+
+    const { data, error } = await query
+
+    if (!error && data) {
+      setFeedbacks((data as RemoteFeedback[]).map(feedbackFromRemote))
+    }
+  }
+
   async function loadRemoteSession(userId: string) {
     const profile = await loadRemoteProfile(userId)
     if (!profile) return
@@ -452,6 +510,7 @@ function App() {
     await Promise.all([
       loadRemoteProfilesIfAdmin(profile),
       loadRemoteFinancialData(userId),
+      loadRemoteFeedback(profile),
     ])
   }
 
@@ -959,6 +1018,50 @@ function App() {
     )
   }
 
+  async function addSuggestion() {
+    if (!currentUser) return
+
+    const message = suggestionText.trim()
+    if (message.length < 6) {
+      setSuggestionMessage('Escreva um pouco mais sobre sua ideia.')
+      return
+    }
+
+    const newFeedback: Feedback = {
+      id: crypto.randomUUID(),
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userEmail: currentUser.email,
+      message,
+      createdAt: new Date().toISOString(),
+    }
+
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('feedback')
+        .insert({
+          user_id: newFeedback.userId,
+          user_name: newFeedback.userName,
+          user_email: newFeedback.userEmail,
+          message: newFeedback.message,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        setSuggestionMessage('Ainda preciso criar a tabela de sugestoes no Supabase.')
+        return
+      }
+
+      setFeedbacks([feedbackFromRemote(data as RemoteFeedback), ...feedbacks])
+    } else {
+      setFeedbacks([newFeedback, ...feedbacks])
+    }
+
+    setSuggestionText('')
+    setSuggestionMessage('Sugestao enviada. Valeu por ajudar a melhorar o app.')
+  }
+
   if (authLoading) {
     return (
       <main className="auth-shell">
@@ -1245,6 +1348,13 @@ function App() {
             type="button"
           >
             <BookOpen size={18} /> Aprender
+          </button>
+          <button
+            className={activeTab === 'sugestoes' ? 'is-active' : ''}
+            onClick={() => setActiveTab('sugestoes')}
+            type="button"
+          >
+            <ReceiptText size={18} /> Sugestoes
           </button>
         </nav>
 
@@ -1668,6 +1778,61 @@ function App() {
                 </article>
               ))}
             </div>
+          </section>
+        )}
+
+        {activeTab === 'sugestoes' && (
+          <section className="two-column">
+            <article className="form-panel">
+              <div className="section-title">
+                <h2>Enviar sugestao</h2>
+                <ReceiptText size={20} />
+              </div>
+              <p className="helper-text">
+                Conte o que voce gostaria de ver no app, o que esta confuso ou qual
+                melhoria deixaria sua vida mais facil.
+              </p>
+              <textarea
+                placeholder="Ex: queria uma meta de economia mensal, aviso de boleto vencendo, grafico por categoria..."
+                value={suggestionText}
+                onChange={(event) => {
+                  setSuggestionText(event.target.value)
+                  setSuggestionMessage('')
+                }}
+              />
+              <button className="primary-action full" type="button" onClick={addSuggestion}>
+                <Plus size={18} /> Enviar sugestao
+              </button>
+              {suggestionMessage && <p className="auth-message">{suggestionMessage}</p>}
+            </article>
+
+            <article className="wide-card">
+              <div className="section-title">
+                <h2>
+                  {currentUser.role === 'admin'
+                    ? 'Sugestoes recebidas'
+                    : 'Suas sugestoes'}
+                </h2>
+                <Users size={20} />
+              </div>
+              <div className="list">
+                {visibleFeedbacks.length === 0 && (
+                  <div className="empty-state">
+                    Nenhuma sugestao enviada ainda. A primeira ideia pode nascer aqui.
+                  </div>
+                )}
+                {visibleFeedbacks.map((feedback) => (
+                  <div className="list-item feedback-item" key={feedback.id}>
+                    <div>
+                      <strong>{feedback.userName}</strong>
+                      <span>{feedback.userEmail}</span>
+                      <p>{feedback.message}</p>
+                    </div>
+                    <small>{formatDateForDisplay(feedback.createdAt.slice(0, 10))}</small>
+                  </div>
+                ))}
+              </div>
+            </article>
           </section>
         )}
       </section>

@@ -619,7 +619,10 @@ h2 {
 .list-item span,
 .receipt-preview span,
 .learn-card p,
-.learn-card small {
+.learn-card small,
+.helper-text,
+.feedback-item p,
+.feedback-item small {
   color: #6b7280;
   font-size: 14px;
 }
@@ -680,6 +683,20 @@ h2 {
 
 .list-item b.income {
   color: #059669;
+}
+
+.feedback-item {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.feedback-item p {
+  margin-top: 8px;
+  line-height: 1.45;
+}
+
+.feedback-item small {
+  white-space: nowrap;
 }
 
 .two-column,
