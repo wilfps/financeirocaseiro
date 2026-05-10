@@ -9,6 +9,9 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+create unique index if not exists profiles_email_unique
+on public.profiles (email);
+
 create table if not exists public.transactions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -50,9 +53,9 @@ begin
   )
   values (
     new.id,
-    coalesce(new.raw_user_meta_data ->> 'name', ''),
-    coalesce(new.raw_user_meta_data ->> 'phoneDdd', ''),
-    coalesce(new.raw_user_meta_data ->> 'phoneNumber', ''),
+    coalesce(nullif(new.raw_user_meta_data ->> 'name', ''), split_part(coalesce(new.email, ''), '@', 1), 'Usuario'),
+    coalesce(nullif(new.raw_user_meta_data ->> 'phoneDdd', ''), '00'),
+    coalesce(nullif(new.raw_user_meta_data ->> 'phoneNumber', ''), '000000000'),
     coalesce(new.email, ''),
     coalesce((new.raw_user_meta_data ->> 'birthDate')::date, current_date),
     'user'
@@ -72,6 +75,28 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();
+
+insert into public.profiles (
+  id,
+  name,
+  phone_ddd,
+  phone_number,
+  email,
+  birth_date,
+  role
+)
+select
+  users.id,
+  coalesce(nullif(users.raw_user_meta_data ->> 'name', ''), split_part(coalesce(users.email, ''), '@', 1), 'Usuario'),
+  coalesce(nullif(users.raw_user_meta_data ->> 'phoneDdd', ''), '00'),
+  coalesce(nullif(users.raw_user_meta_data ->> 'phoneNumber', ''), '000000000'),
+  coalesce(users.email, ''),
+  coalesce((users.raw_user_meta_data ->> 'birthDate')::date, current_date),
+  'user'
+from auth.users users
+left join public.profiles profiles on profiles.id = users.id
+where profiles.id is null
+on conflict (id) do nothing;
 
 create or replace function public.ensure_profile()
 returns public.profiles
@@ -116,6 +141,8 @@ begin
 end;
 $$;
 
+grant execute on function public.ensure_profile() to authenticated;
+
 alter table public.profiles enable row level security;
 alter table public.transactions enable row level security;
 alter table public.bills enable row level security;
@@ -142,10 +169,18 @@ with check (id = auth.uid());
 drop policy if exists "profiles_update_own" on public.profiles;
 
 drop policy if exists "transactions_select_own" on public.transactions;
-create policy "transactions_select_own"
+drop policy if exists "transactions_select_own_or_admin" on public.transactions;
+create policy "transactions_select_own_or_admin"
 on public.transactions for select
 to authenticated
-using (user_id = auth.uid());
+using (
+  user_id = auth.uid()
+  or exists (
+    select 1 from public.profiles admin_profile
+    where admin_profile.id = auth.uid()
+      and admin_profile.role = 'admin'
+  )
+);
 
 drop policy if exists "transactions_insert_own" on public.transactions;
 create policy "transactions_insert_own"
@@ -160,10 +195,18 @@ to authenticated
 using (user_id = auth.uid());
 
 drop policy if exists "bills_select_own" on public.bills;
-create policy "bills_select_own"
+drop policy if exists "bills_select_own_or_admin" on public.bills;
+create policy "bills_select_own_or_admin"
 on public.bills for select
 to authenticated
-using (user_id = auth.uid());
+using (
+  user_id = auth.uid()
+  or exists (
+    select 1 from public.profiles admin_profile
+    where admin_profile.id = auth.uid()
+      and admin_profile.role = 'admin'
+  )
+);
 
 drop policy if exists "bills_insert_own" on public.bills;
 create policy "bills_insert_own"
