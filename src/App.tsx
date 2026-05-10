@@ -876,11 +876,38 @@ function App() {
               <span>dinheiro sem drama</span>
             </div>
           </div>
-          <h1>Controle financeiro com login, IA e painel ADM.</h1>
-          <p>
-            Cada pessoa entra com dashboard zerado, preenche seus dados e ve a
-            IA atualizar tudo na hora, sem recarregar a pagina.
-          </p>
+          <div className="auth-copy">
+            <span className="hero-pill">feito para celular • direto • visual</span>
+            <h1>Organize sua grana sem planilha chata.</h1>
+            <p>
+              Gastos, boletos, formas de pagamento e IA em um painel que muda
+              na hora conforme voce preenche.
+            </p>
+          </div>
+          <div className="phone-preview" aria-hidden="true">
+            <div className="phone-top">
+              <span>Saldo do mes</span>
+              <strong>R$ 1.893,10</strong>
+            </div>
+            <div className="preview-card green">
+              <span>Pix</span>
+              <strong>+ R$ 320,00</strong>
+            </div>
+            <div className="preview-card pink">
+              <span>Cartao</span>
+              <strong>- R$ 89,80</strong>
+            </div>
+            <div className="mini-bars">
+              <span />
+              <span />
+              <span />
+            </div>
+          </div>
+          <div className="auth-highlights">
+            <span>Dashboard vivo</span>
+            <span>Comprovantes</span>
+            <span>Boletos</span>
+          </div>
         </section>
 
         <section className="auth-card">
