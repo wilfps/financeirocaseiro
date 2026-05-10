@@ -565,7 +565,10 @@ function App() {
       return
     }
 
-    if (users.some((user) => user.email === signupForm.email.trim().toLowerCase())) {
+    if (
+      !supabase &&
+      users.some((user) => user.email === signupForm.email.trim().toLowerCase())
+    ) {
       setAuthMessage('Este email ja possui cadastro.')
       return
     }
