@@ -610,7 +610,23 @@ function App() {
       })
 
       if (error || !data.user) {
-        setAuthMessage('Email ou senha incorretos.')
+        const message = error?.message.toLowerCase() ?? ''
+
+        if (message.includes('email not confirmed')) {
+          setAuthMessage(
+            'Seu email ainda nao foi confirmado. Confirme pelo email ou libere a conta no Supabase.',
+          )
+          return
+        }
+
+        if (message.includes('invalid login credentials')) {
+          setAuthMessage(
+            'Nao consegui entrar com esse email e senha. Confira a senha ou redefina o acesso.',
+          )
+          return
+        }
+
+        setAuthMessage(error?.message ?? 'Nao consegui fazer login agora.')
         return
       }
 
