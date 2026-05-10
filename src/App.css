@@ -898,21 +898,44 @@ textarea {
 @media (max-width: 940px) {
   .auth-shell {
     grid-template-columns: 1fr;
-    padding: 14px;
+    align-items: start;
+    gap: 14px;
+    padding: 12px;
   }
 
   .auth-hero {
+    order: 2;
     grid-template-columns: 1fr;
     min-height: auto;
-    padding: 24px;
+    gap: 22px;
+    padding: 24px 18px;
   }
 
   .auth-hero h1 {
-    font-size: 36px;
+    font-size: 40px;
+  }
+
+  .auth-hero p {
+    font-size: 17px;
+  }
+
+  .auth-logo-lockup img {
+    width: 184px;
+  }
+
+  .auth-card {
+    order: 1;
+    width: 100%;
+    padding: 18px;
+    position: sticky;
+    top: 8px;
+    z-index: 5;
   }
 
   .phone-preview {
-    min-height: 360px;
+    width: min(100%, 320px);
+    min-height: 320px;
+    justify-self: center;
     border-radius: 28px;
   }
 
@@ -921,27 +944,51 @@ textarea {
   }
 
   .sidebar {
-    position: static;
+    position: sticky;
+    top: 0;
+    z-index: 20;
     height: auto;
-    padding: 14px;
+    padding: 12px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(17, 24, 39, 0.1);
   }
 
   .brand {
-    margin-bottom: 14px;
+    margin-bottom: 10px;
+  }
+
+  .brand-mark {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
   }
 
   nav {
-    grid-template-columns: repeat(5, minmax(72px, 1fr));
+    display: flex;
+    gap: 8px;
     overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  nav::-webkit-scrollbar {
+    display: none;
   }
 
   nav button {
+    width: auto;
+    min-width: max-content;
     justify-content: center;
     font-size: 12px;
+    padding: 10px 12px;
+  }
+
+  .logout-button {
+    margin-top: 10px;
   }
 
   .workspace {
-    padding: 18px;
+    padding: 16px 12px 24px;
   }
 
   .topbar,
@@ -957,7 +1004,8 @@ textarea {
   }
 
   h1 {
-    font-size: 34px;
+    font-size: 36px;
+    line-height: 1.02;
   }
 
   .dashboard-grid,
@@ -989,5 +1037,144 @@ textarea {
 
   .news-header {
     display: grid;
+  }
+}
+
+@media (max-width: 620px) {
+  .auth-shell {
+    padding: 0;
+    background: #fbfaf7;
+  }
+
+  .auth-card {
+    position: static;
+    border-radius: 0 0 18px 18px;
+    border-inline: 0;
+  }
+
+  .auth-hero {
+    border-radius: 0;
+    padding: 24px 18px 30px;
+    box-shadow: none;
+  }
+
+  .auth-hero h1 {
+    font-size: 34px;
+  }
+
+  .auth-highlights {
+    gap: 8px;
+  }
+
+  .auth-highlights span {
+    padding: 9px 10px;
+    font-size: 12px;
+  }
+
+  .phone-preview {
+    min-height: 280px;
+    border-width: 8px;
+  }
+
+  .phone-top {
+    min-height: 118px;
+  }
+
+  .phone-top strong {
+    font-size: 27px;
+  }
+
+  .sidebar {
+    padding: 10px;
+  }
+
+  .brand strong {
+    font-size: 18px;
+  }
+
+  .brand div > span {
+    font-size: 12px;
+  }
+
+  .topbar {
+    gap: 14px;
+  }
+
+  .primary-action {
+    width: 100%;
+    justify-content: center;
+  }
+
+  h1 {
+    font-size: 31px;
+  }
+
+  .metric-card,
+  .wide-card,
+  .balance-panel,
+  .form-card {
+    padding: 18px;
+  }
+
+  .balance-panel h2 {
+    font-size: 32px;
+  }
+
+  .health-ring {
+    width: 112px;
+    height: 112px;
+    justify-self: center;
+  }
+
+  .admin-table {
+    overflow: visible;
+  }
+
+  .admin-head {
+    display: none;
+  }
+
+  .admin-row {
+    min-width: 0;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 14px;
+  }
+
+  .admin-row span {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 14px;
+  }
+
+  .admin-row span:nth-child(1)::before {
+    content: "Nome";
+    color: #6b7280;
+    font-weight: 800;
+  }
+
+  .admin-row span:nth-child(2)::before {
+    content: "Email";
+    color: #6b7280;
+    font-weight: 800;
+  }
+
+  .admin-row span:nth-child(3)::before {
+    content: "Telefone";
+    color: #6b7280;
+    font-weight: 800;
+  }
+
+  .admin-row span:nth-child(4)::before {
+    content: "Idade";
+    color: #6b7280;
+    font-weight: 800;
+  }
+
+  .admin-row span:nth-child(5)::before {
+    content: "Tipo";
+    color: #6b7280;
+    font-weight: 800;
   }
 }
