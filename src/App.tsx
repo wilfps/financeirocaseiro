@@ -335,11 +335,46 @@ function App() {
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
 
     if (error || !data) {
-      setDbMessage('Nao consegui carregar o perfil no banco.')
-      return null
+      const { data: authData } = await supabase.auth.getUser()
+      const authUser = authData.user
+
+      if (!authUser) {
+        setDbMessage('Nao consegui carregar o perfil no banco.')
+        return null
+      }
+
+      const metadata = authUser.user_metadata
+      const fallbackProfile = {
+        id: userId,
+        name: String(metadata.name ?? authUser.email?.split('@')[0] ?? 'Usuario'),
+        phone_ddd: String(metadata.phoneDdd ?? '00'),
+        phone_number: String(metadata.phoneNumber ?? '000000000'),
+        email: authUser.email ?? '',
+        birth_date: String(metadata.birthDate ?? '2000-01-01'),
+        role: 'user',
+      }
+
+      const { data: createdProfile, error: createError } = await supabase
+        .from('profiles')
+        .insert(fallbackProfile)
+        .select('*')
+        .single()
+
+      if (createError || !createdProfile) {
+        setDbMessage('Nao consegui criar o perfil no banco.')
+        return null
+      }
+
+      const profile = profileFromRemote(createdProfile as RemoteProfile)
+      setUsers((currentUsers) => {
+        const withoutProfile = currentUsers.filter((user) => user.id !== profile.id)
+        return [profile, ...withoutProfile]
+      })
+      setDbMessage('Perfil criado automaticamente no banco.')
+      return profile
     }
 
     const profile = profileFromRemote(data as RemoteProfile)
