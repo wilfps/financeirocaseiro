@@ -1,0 +1,17 @@
+{
+  "name": "FinFlow - Controle financeiro jovem",
+  "short_name": "FinFlow",
+  "description": "Dashboard financeiro com boletos, formas de pagamento, comprovantes e IA.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f8fb",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
