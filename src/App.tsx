@@ -338,30 +338,9 @@ function App() {
       .maybeSingle()
 
     if (error || !data) {
-      const { data: authData } = await supabase.auth.getUser()
-      const authUser = authData.user
-
-      if (!authUser) {
-        setDbMessage('Nao consegui carregar o perfil no banco.')
-        return null
-      }
-
-      const metadata = authUser.user_metadata
-      const fallbackProfile = {
-        id: userId,
-        name: String(metadata.name ?? authUser.email?.split('@')[0] ?? 'Usuario'),
-        phone_ddd: String(metadata.phoneDdd ?? '00'),
-        phone_number: String(metadata.phoneNumber ?? '000000000'),
-        email: authUser.email ?? '',
-        birth_date: String(metadata.birthDate ?? '2000-01-01'),
-        role: 'user',
-      }
-
-      const { data: createdProfile, error: createError } = await supabase
-        .from('profiles')
-        .insert(fallbackProfile)
-        .select('*')
-        .single()
+      const { data: createdProfile, error: createError } = await supabase.rpc(
+        'ensure_profile',
+      )
 
       if (createError || !createdProfile) {
         setDbMessage('Nao consegui criar o perfil no banco.')

@@ -73,6 +73,49 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();
 
+create or replace function public.ensure_profile()
+returns public.profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_profile public.profiles;
+begin
+  select *
+  into current_profile
+  from public.profiles
+  where id = auth.uid();
+
+  if current_profile.id is not null then
+    return current_profile;
+  end if;
+
+  insert into public.profiles (
+    id,
+    name,
+    phone_ddd,
+    phone_number,
+    email,
+    birth_date,
+    role
+  )
+  select
+    auth.uid(),
+    coalesce(raw_user_meta_data ->> 'name', split_part(email, '@', 1), 'Usuario'),
+    coalesce(raw_user_meta_data ->> 'phoneDdd', '00'),
+    coalesce(raw_user_meta_data ->> 'phoneNumber', '000000000'),
+    coalesce(email, ''),
+    coalesce((raw_user_meta_data ->> 'birthDate')::date, current_date),
+    'user'
+  from auth.users
+  where id = auth.uid()
+  returning * into current_profile;
+
+  return current_profile;
+end;
+$$;
+
 alter table public.profiles enable row level security;
 alter table public.transactions enable row level security;
 alter table public.bills enable row level security;
