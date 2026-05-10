@@ -4,21 +4,41 @@ import {
   BookOpen,
   Camera,
   CreditCard,
+  Eye,
   Landmark,
   LineChart,
+  LogOut,
   Plus,
   ReceiptText,
+  Shield,
   Sparkles,
   Trash2,
+  UserPlus,
+  Users,
   WalletCards,
 } from 'lucide-react'
 import './App.css'
 
 type PaymentMethod = 'Cartao de credito' | 'Pix' | 'Debito' | 'Dinheiro'
 type TransactionType = 'income' | 'expense'
+type UserRole = 'user' | 'admin'
+type AuthView = 'login' | 'signup' | 'reset'
+
+type AppUser = {
+  id: string
+  name: string
+  phoneDdd: string
+  phoneNumber: string
+  email: string
+  password: string
+  birthDate: string
+  role: UserRole
+  createdAt: string
+}
 
 type Transaction = {
   id: string
+  userId: string
   type: TransactionType
   title: string
   amount: number
@@ -30,6 +50,7 @@ type Transaction = {
 
 type Bill = {
   id: string
+  userId: string
   title: string
   amount: number
   dueDate: string
@@ -41,6 +62,13 @@ type ReceiptDraft = {
   guessTitle: string
   guessAmount: number
   guessMethod: PaymentMethod
+}
+
+type NewsItem = {
+  title: string
+  tag: string
+  time: string
+  link?: string
 }
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -55,64 +83,7 @@ const paymentMethods: PaymentMethod[] = [
   'Dinheiro',
 ]
 
-const initialTransactions: Transaction[] = [
-  {
-    id: 't1',
-    type: 'income',
-    title: 'Salario',
-    amount: 3200,
-    category: 'Trabalho',
-    paymentMethod: 'Pix',
-    date: '2026-05-05',
-    note: 'Entrada fixa mensal',
-  },
-  {
-    id: 't2',
-    type: 'expense',
-    title: 'Mercado',
-    amount: 412.9,
-    category: 'Casa',
-    paymentMethod: 'Debito',
-    date: '2026-05-07',
-    note: 'Compra da semana',
-  },
-  {
-    id: 't3',
-    type: 'expense',
-    title: 'Streaming e apps',
-    amount: 89.8,
-    category: 'Assinaturas',
-    paymentMethod: 'Cartao de credito',
-    date: '2026-05-08',
-    note: 'Servicos digitais',
-  },
-]
-
-const initialBills: Bill[] = [
-  {
-    id: 'b1',
-    title: 'Internet',
-    amount: 119.9,
-    dueDate: '2026-05-12',
-    paid: false,
-  },
-  {
-    id: 'b2',
-    title: 'Cartao Nubank',
-    amount: 684.3,
-    dueDate: '2026-05-17',
-    paid: false,
-  },
-  {
-    id: 'b3',
-    title: 'Aluguel',
-    amount: 980,
-    dueDate: '2026-05-10',
-    paid: true,
-  },
-]
-
-const news = [
+const fallbackNews: NewsItem[] = [
   {
     title: 'Tesouro Selic: onde entra na reserva de emergencia',
     tag: 'Renda fixa',
@@ -143,14 +114,65 @@ function useLocalStorage<T>(key: string, initialValue: T) {
   return [value, setValue] as const
 }
 
+function calculateAge(birthDate: string) {
+  if (!birthDate) return '-'
+
+  const birth = new Date(`${birthDate}T00:00:00`)
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const monthDiff = today.getMonth() - birth.getMonth()
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age -= 1
+  }
+
+  return age
+}
+
 function App() {
+  const [users, setUsers] = useLocalStorage<AppUser[]>('finflow-users', [])
+  const [sessionId, setSessionId] = useLocalStorage<string | null>(
+    'finflow-session-id',
+    null,
+  )
   const [transactions, setTransactions] = useLocalStorage<Transaction[]>(
     'finflow-transactions',
-    initialTransactions,
+    [],
   )
-  const [bills, setBills] = useLocalStorage<Bill[]>('finflow-bills', initialBills)
+  const [bills, setBills] = useLocalStorage<Bill[]>('finflow-bills', [])
+  const [news, setNews] = useState<NewsItem[]>(fallbackNews)
+  const [newsStatus, setNewsStatus] = useState('Atualizando noticias...')
+  const [authView, setAuthView] = useState<AuthView>('login')
+  const [authMessage, setAuthMessage] = useState('')
   const [activeTab, setActiveTab] = useState('dashboard')
   const [receiptDraft, setReceiptDraft] = useState<ReceiptDraft | null>(null)
+
+  const currentUser = users.find((user) => user.id === sessionId) ?? null
+  const userTransactions = transactions.filter(
+    (transaction) => transaction.userId === currentUser?.id,
+  )
+  const userBills = bills.filter((bill) => bill.userId === currentUser?.id)
+
+  const [loginForm, setLoginForm] = useState({
+    email: '',
+    password: '',
+  })
+
+  const [signupForm, setSignupForm] = useState({
+    name: '',
+    phoneDdd: '',
+    phoneNumber: '',
+    email: '',
+    password: '',
+    birthDate: '',
+    role: 'user' as UserRole,
+    adminCode: '',
+  })
+
+  const [resetForm, setResetForm] = useState({
+    email: '',
+    newPassword: '',
+  })
 
   const [transactionForm, setTransactionForm] = useState({
     type: 'expense' as TransactionType,
@@ -168,23 +190,63 @@ function App() {
     dueDate: new Date().toISOString().slice(0, 10),
   })
 
+  useEffect(() => {
+    async function loadNews() {
+      try {
+        const rssUrl = encodeURIComponent('https://www.infomoney.com.br/feed/')
+        const response = await fetch(
+          `https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}`,
+        )
+        const data = await response.json()
+
+        if (!Array.isArray(data.items)) {
+          throw new Error('Fonte sem itens')
+        }
+
+        setNews(
+          data.items.slice(0, 6).map((item: { title: string; link: string }) => ({
+            title: item.title,
+            tag: 'Mercado agora',
+            time: 'tempo real',
+            link: item.link,
+          })),
+        )
+        setNewsStatus('Noticias atualizadas em tempo real via RSS')
+      } catch {
+        setNews(fallbackNews)
+        setNewsStatus('Fonte ao vivo indisponivel agora; exibindo conteudo base')
+      }
+    }
+
+    loadNews()
+    const interval = window.setInterval(loadNews, 1000 * 60 * 10)
+
+    return () => window.clearInterval(interval)
+  }, [])
+
   const summary = useMemo(() => {
-    const income = transactions
+    const income = userTransactions
       .filter((transaction) => transaction.type === 'income')
       .reduce((sum, transaction) => sum + transaction.amount, 0)
-    const expenses = transactions
+    const expenses = userTransactions
       .filter((transaction) => transaction.type === 'expense')
       .reduce((sum, transaction) => sum + transaction.amount, 0)
-    const openBills = bills
+    const openBills = userBills
       .filter((bill) => !bill.paid)
       .reduce((sum, bill) => sum + bill.amount, 0)
     const balance = income - expenses - openBills
     const health =
-      balance > income * 0.25 ? 'verde' : balance > 0 ? 'amarelo' : 'vermelho'
+      income === 0 && expenses === 0 && openBills === 0
+        ? 'zerado'
+        : balance > income * 0.25
+          ? 'verde'
+          : balance > 0
+            ? 'amarelo'
+            : 'vermelho'
 
     const byPayment = paymentMethods.map((method) => ({
       method,
-      total: transactions
+      total: userTransactions
         .filter(
           (transaction) =>
             transaction.type === 'expense' && transaction.paymentMethod === method,
@@ -193,9 +255,13 @@ function App() {
     }))
 
     return { income, expenses, openBills, balance, health, byPayment }
-  }, [bills, transactions])
+  }, [userBills, userTransactions])
 
   const aiMessage = useMemo(() => {
+    if (summary.health === 'zerado') {
+      return 'Sua conta esta zerada. Cadastre seu primeiro ganho ou boleto para a IA montar seu panorama.'
+    }
+
     if (summary.health === 'verde') {
       return 'Voce esta no verde. Da para separar uma parte para reserva antes de gastar com lazer.'
     }
@@ -207,13 +273,118 @@ function App() {
     return 'Alerta vermelho. Seus gastos e boletos em aberto passaram das entradas previstas.'
   }, [summary.health])
 
+  function signUp() {
+    setAuthMessage('')
+
+    if (
+      !signupForm.name.trim() ||
+      !signupForm.phoneDdd.trim() ||
+      !signupForm.phoneNumber.trim() ||
+      !signupForm.email.trim() ||
+      !signupForm.password ||
+      !signupForm.birthDate
+    ) {
+      setAuthMessage('Preencha todos os campos para criar a conta.')
+      return
+    }
+
+    if (users.some((user) => user.email === signupForm.email.trim().toLowerCase())) {
+      setAuthMessage('Este email ja possui cadastro.')
+      return
+    }
+
+    if (signupForm.role === 'admin' && signupForm.adminCode !== 'FINFLOW-ADM') {
+      setAuthMessage('Codigo de ADM invalido.')
+      return
+    }
+
+    const newUser: AppUser = {
+      id: crypto.randomUUID(),
+      name: signupForm.name.trim(),
+      phoneDdd: signupForm.phoneDdd.trim(),
+      phoneNumber: signupForm.phoneNumber.trim(),
+      email: signupForm.email.trim().toLowerCase(),
+      password: signupForm.password,
+      birthDate: signupForm.birthDate,
+      role: signupForm.role,
+      createdAt: new Date().toISOString(),
+    }
+
+    setUsers([newUser, ...users])
+    setSessionId(newUser.id)
+    setActiveTab(newUser.role === 'admin' ? 'admin' : 'dashboard')
+    setSignupForm({
+      name: '',
+      phoneDdd: '',
+      phoneNumber: '',
+      email: '',
+      password: '',
+      birthDate: '',
+      role: 'user',
+      adminCode: '',
+    })
+  }
+
+  function login() {
+    setAuthMessage('')
+    const user = users.find(
+      (item) =>
+        item.email === loginForm.email.trim().toLowerCase() &&
+        item.password === loginForm.password,
+    )
+
+    if (!user) {
+      setAuthMessage('Email ou senha incorretos.')
+      return
+    }
+
+    setSessionId(user.id)
+    setActiveTab(user.role === 'admin' ? 'admin' : 'dashboard')
+    setLoginForm({ email: '', password: '' })
+  }
+
+  function resetPassword() {
+    setAuthMessage('')
+
+    if (!resetForm.email.trim() || !resetForm.newPassword) {
+      setAuthMessage('Digite email e nova senha.')
+      return
+    }
+
+    const email = resetForm.email.trim().toLowerCase()
+    const exists = users.some((user) => user.email === email)
+
+    if (!exists) {
+      setAuthMessage('Nao encontramos uma conta com esse email.')
+      return
+    }
+
+    setUsers(
+      users.map((user) =>
+        user.email === email ? { ...user, password: resetForm.newPassword } : user,
+      ),
+    )
+    setResetForm({ email: '', newPassword: '' })
+    setAuthView('login')
+    setAuthMessage('Senha redefinida. Entre com a nova senha.')
+  }
+
+  function logout() {
+    setSessionId(null)
+    setActiveTab('dashboard')
+    setAuthView('login')
+  }
+
   function addTransaction() {
+    if (!currentUser) return
+
     const amount = Number(transactionForm.amount)
     if (!transactionForm.title.trim() || !amount) return
 
     setTransactions([
       {
         id: crypto.randomUUID(),
+        userId: currentUser.id,
         type: transactionForm.type,
         title: transactionForm.title.trim(),
         amount,
@@ -237,12 +408,15 @@ function App() {
   }
 
   function addBill() {
+    if (!currentUser) return
+
     const amount = Number(billForm.amount)
     if (!billForm.title.trim() || !amount) return
 
     setBills([
       {
         id: crypto.randomUUID(),
+        userId: currentUser.id,
         title: billForm.title.trim(),
         amount,
         dueDate: billForm.dueDate,
@@ -285,6 +459,202 @@ function App() {
     setActiveTab('lancamentos')
   }
 
+  if (!currentUser) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-hero">
+          <div className="brand auth-brand">
+            <span className="brand-mark">F</span>
+            <div>
+              <strong>FinFlow</strong>
+              <span>dinheiro sem drama</span>
+            </div>
+          </div>
+          <h1>Controle financeiro com login, IA e painel ADM.</h1>
+          <p>
+            Cada pessoa entra com dashboard zerado, preenche seus dados e ve a
+            IA atualizar tudo na hora, sem recarregar a pagina.
+          </p>
+        </section>
+
+        <section className="auth-card">
+          <div className="auth-tabs">
+            <button
+              className={authView === 'login' ? 'selected' : ''}
+              type="button"
+              onClick={() => setAuthView('login')}
+            >
+              Entrar
+            </button>
+            <button
+              className={authView === 'signup' ? 'selected' : ''}
+              type="button"
+              onClick={() => setAuthView('signup')}
+            >
+              Criar conta
+            </button>
+          </div>
+
+          {authView === 'login' && (
+            <div className="auth-form">
+              <h2>Login</h2>
+              <input
+                placeholder="Email"
+                type="email"
+                value={loginForm.email}
+                onChange={(event) =>
+                  setLoginForm({ ...loginForm, email: event.target.value })
+                }
+              />
+              <input
+                placeholder="Senha"
+                type="password"
+                value={loginForm.password}
+                onChange={(event) =>
+                  setLoginForm({ ...loginForm, password: event.target.value })
+                }
+              />
+              <button className="primary-action full" type="button" onClick={login}>
+                Entrar agora
+              </button>
+              <button
+                className="text-button"
+                type="button"
+                onClick={() => setAuthView('reset')}
+              >
+                Esqueci minha senha
+              </button>
+            </div>
+          )}
+
+          {authView === 'signup' && (
+            <div className="auth-form">
+              <h2>Cadastro</h2>
+              <input
+                placeholder="Nome completo"
+                value={signupForm.name}
+                onChange={(event) =>
+                  setSignupForm({ ...signupForm, name: event.target.value })
+                }
+              />
+              <div className="phone-grid">
+                <input
+                  placeholder="DDD"
+                  inputMode="numeric"
+                  maxLength={2}
+                  value={signupForm.phoneDdd}
+                  onChange={(event) =>
+                    setSignupForm({ ...signupForm, phoneDdd: event.target.value })
+                  }
+                />
+                <input
+                  placeholder="Numero de telefone"
+                  inputMode="tel"
+                  value={signupForm.phoneNumber}
+                  onChange={(event) =>
+                    setSignupForm({ ...signupForm, phoneNumber: event.target.value })
+                  }
+                />
+              </div>
+              <input
+                placeholder="Email"
+                type="email"
+                value={signupForm.email}
+                onChange={(event) =>
+                  setSignupForm({ ...signupForm, email: event.target.value })
+                }
+              />
+              <input
+                placeholder="Senha"
+                type="password"
+                value={signupForm.password}
+                onChange={(event) =>
+                  setSignupForm({ ...signupForm, password: event.target.value })
+                }
+              />
+              <label className="field-label">
+                Data de nascimento
+                <input
+                  type="date"
+                  value={signupForm.birthDate}
+                  onChange={(event) =>
+                    setSignupForm({ ...signupForm, birthDate: event.target.value })
+                  }
+                />
+              </label>
+              <div className="segmented">
+                <button
+                  className={signupForm.role === 'user' ? 'selected' : ''}
+                  type="button"
+                  onClick={() => setSignupForm({ ...signupForm, role: 'user' })}
+                >
+                  Conta normal
+                </button>
+                <button
+                  className={signupForm.role === 'admin' ? 'selected' : ''}
+                  type="button"
+                  onClick={() => setSignupForm({ ...signupForm, role: 'admin' })}
+                >
+                  ADM
+                </button>
+              </div>
+              {signupForm.role === 'admin' && (
+                <input
+                  placeholder="Codigo ADM"
+                  value={signupForm.adminCode}
+                  onChange={(event) =>
+                    setSignupForm({ ...signupForm, adminCode: event.target.value })
+                  }
+                />
+              )}
+              <button className="primary-action full" type="button" onClick={signUp}>
+                <UserPlus size={18} /> Criar cadastro
+              </button>
+            </div>
+          )}
+
+          {authView === 'reset' && (
+            <div className="auth-form">
+              <h2>Redefinir senha</h2>
+              <input
+                placeholder="Email cadastrado"
+                type="email"
+                value={resetForm.email}
+                onChange={(event) =>
+                  setResetForm({ ...resetForm, email: event.target.value })
+                }
+              />
+              <input
+                placeholder="Nova senha"
+                type="password"
+                value={resetForm.newPassword}
+                onChange={(event) =>
+                  setResetForm({ ...resetForm, newPassword: event.target.value })
+                }
+              />
+              <button
+                className="primary-action full"
+                type="button"
+                onClick={resetPassword}
+              >
+                Redefinir senha
+              </button>
+              <button
+                className="text-button"
+                type="button"
+                onClick={() => setAuthView('login')}
+              >
+                Voltar para login
+              </button>
+            </div>
+          )}
+
+          {authMessage && <p className="auth-message">{authMessage}</p>}
+        </section>
+      </main>
+    )
+  }
+
   return (
     <main className="app-shell">
       <aside className="sidebar" aria-label="Menu principal">
@@ -292,11 +662,20 @@ function App() {
           <span className="brand-mark">F</span>
           <div>
             <strong>FinFlow</strong>
-            <span>dinheiro sem drama</span>
+            <span>{currentUser.role === 'admin' ? 'painel ADM' : 'dinheiro sem drama'}</span>
           </div>
         </div>
 
         <nav>
+          {currentUser.role === 'admin' && (
+            <button
+              className={activeTab === 'admin' ? 'is-active' : ''}
+              onClick={() => setActiveTab('admin')}
+              type="button"
+            >
+              <Shield size={18} /> ADM
+            </button>
+          )}
           <button
             className={activeTab === 'dashboard' ? 'is-active' : ''}
             onClick={() => setActiveTab('dashboard')}
@@ -333,18 +712,73 @@ function App() {
             <BookOpen size={18} /> Aprender
           </button>
         </nav>
+
+        <button className="logout-button" type="button" onClick={logout}>
+          <LogOut size={17} /> Sair
+        </button>
       </aside>
 
       <section className="workspace">
         <header className="topbar">
           <div>
-            <span className="eyebrow">controle financeiro inteligente</span>
+            <span className="eyebrow">Ola, {currentUser.name}</span>
             <h1>Seu dinheiro, em tempo real.</h1>
           </div>
-          <button className="primary-action" type="button" onClick={() => setActiveTab('lancamentos')}>
+          <button
+            className="primary-action"
+            type="button"
+            onClick={() => setActiveTab('lancamentos')}
+          >
             <Plus size={18} /> Novo gasto
           </button>
         </header>
+
+        {activeTab === 'admin' && currentUser.role === 'admin' && (
+          <section className="admin-grid">
+            <article className="metric-card">
+              <span>Total de cadastros</span>
+              <strong>{users.length}</strong>
+              <small>usuarios criados neste ambiente</small>
+            </article>
+            <article className="metric-card">
+              <span>Contas normais</span>
+              <strong>{users.filter((user) => user.role === 'user').length}</strong>
+              <small>pessoas usando dashboard</small>
+            </article>
+            <article className="metric-card">
+              <span>Administradores</span>
+              <strong>{users.filter((user) => user.role === 'admin').length}</strong>
+              <small>acesso ao painel ADM</small>
+            </article>
+
+            <article className="wide-card">
+              <div className="section-title">
+                <h2>Usuarios cadastrados</h2>
+                <Users size={20} />
+              </div>
+              <div className="admin-table">
+                <div className="admin-row admin-head">
+                  <span>Nome</span>
+                  <span>Email</span>
+                  <span>Telefone</span>
+                  <span>Idade</span>
+                  <span>Tipo</span>
+                </div>
+                {users.map((user) => (
+                  <div className="admin-row" key={user.id}>
+                    <span>{user.name}</span>
+                    <span>{user.email}</span>
+                    <span>
+                      ({user.phoneDdd}) {user.phoneNumber}
+                    </span>
+                    <span>{calculateAge(user.birthDate)} anos</span>
+                    <span>{user.role === 'admin' ? 'ADM' : 'Normal'}</span>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </section>
+        )}
 
         {activeTab === 'dashboard' && (
           <section className="dashboard-grid">
@@ -402,12 +836,15 @@ function App() {
                 <ReceiptText size={20} />
               </div>
               <div className="list">
-                {transactions.slice(0, 5).map((transaction) => (
+                {userTransactions.length === 0 && (
+                  <div className="empty-state">Nenhum lancamento ainda.</div>
+                )}
+                {userTransactions.slice(0, 5).map((transaction) => (
                   <div className="list-item" key={transaction.id}>
                     <div>
                       <strong>{transaction.title}</strong>
                       <span>
-                        {transaction.category} • {transaction.paymentMethod}
+                        {transaction.category} - {transaction.paymentMethod}
                       </span>
                     </div>
                     <b className={transaction.type}>
@@ -445,7 +882,7 @@ function App() {
                 </button>
               </div>
               <input
-                placeholder="Ex: almoço, salario, mercado"
+                placeholder="Ex: almoco, salario, mercado"
                 value={transactionForm.title}
                 onChange={(event) =>
                   setTransactionForm({ ...transactionForm, title: event.target.value })
@@ -505,12 +942,15 @@ function App() {
                 <ReceiptText size={20} />
               </div>
               <div className="list">
-                {transactions.map((transaction) => (
+                {userTransactions.length === 0 && (
+                  <div className="empty-state">Sua conta comeca zerada. Adicione o primeiro lancamento.</div>
+                )}
+                {userTransactions.map((transaction) => (
                   <div className="list-item" key={transaction.id}>
                     <div>
                       <strong>{transaction.title}</strong>
                       <span>
-                        {transaction.date} • {transaction.category} • {transaction.paymentMethod}
+                        {transaction.date} - {transaction.category} - {transaction.paymentMethod}
                       </span>
                     </div>
                     <b className={transaction.type}>
@@ -571,7 +1011,10 @@ function App() {
                 <Landmark size={20} />
               </div>
               <div className="list">
-                {bills.map((bill) => (
+                {userBills.length === 0 && (
+                  <div className="empty-state">Nenhum boleto cadastrado ainda.</div>
+                )}
+                {userBills.map((bill) => (
                   <div className="list-item" key={bill.id}>
                     <div>
                       <strong>{bill.title}</strong>
@@ -606,7 +1049,7 @@ function App() {
               <p>{aiMessage}</p>
               <div className="ai-insights">
                 <span>Saldo previsto: {currency.format(summary.balance)}</span>
-                <span>Maior risco: boletos em aberto</span>
+                <span>Atualizacao: instantanea, sem refresh</span>
                 <span>Proxima melhoria: conectar OCR real via API</span>
               </div>
             </article>
@@ -631,7 +1074,7 @@ function App() {
                   <strong>IA detectou um possivel gasto</strong>
                   <span>{receiptDraft.fileName}</span>
                   <span>
-                    {currency.format(receiptDraft.guessAmount)} • {receiptDraft.guessMethod}
+                    {currency.format(receiptDraft.guessAmount)} - {receiptDraft.guessMethod}
                   </span>
                   <button className="primary-action full" type="button" onClick={approveReceipt}>
                     Usar dados detectados
@@ -643,18 +1086,33 @@ function App() {
         )}
 
         {activeTab === 'news' && (
-          <section className="learn-grid">
-            {news.map((item) => (
-              <article className="learn-card" key={item.title}>
-                <span>{item.tag}</span>
-                <h2>{item.title}</h2>
-                <p>Resumo jovem, direto e facil de entender. Em producao, essa aba puxa links reais.</p>
-                <button type="button">
-                  <BookOpen size={17} /> Ler resumo
-                </button>
-                <small>{item.time} de leitura</small>
-              </article>
-            ))}
+          <section>
+            <div className="news-header">
+              <div>
+                <span className="eyebrow">educacao financeira</span>
+                <h2>Noticias e conteudos atualizados</h2>
+              </div>
+              <span>{newsStatus}</span>
+            </div>
+            <div className="learn-grid">
+              {news.map((item) => (
+                <article className="learn-card" key={item.title}>
+                  <span>{item.tag}</span>
+                  <h2>{item.title}</h2>
+                  <p>Resumo jovem, direto e facil de entender para aprender sem complicar.</p>
+                  {item.link ? (
+                    <a href={item.link} target="_blank" rel="noreferrer">
+                      <Eye size={17} /> Abrir noticia
+                    </a>
+                  ) : (
+                    <button type="button">
+                      <BookOpen size={17} /> Ler resumo
+                    </button>
+                  )}
+                  <small>{item.time}</small>
+                </article>
+              ))}
+            </div>
           </section>
         )}
       </section>
