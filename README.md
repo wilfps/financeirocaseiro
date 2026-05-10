@@ -33,6 +33,47 @@ Fontes oficiais consultadas em 09/05/2026:
 - Netlify Pricing: https://www.netlify.com/pricing/
 - Supabase Pricing: https://supabase.com/pricing
 
+## Banco de dados provisorio com Supabase
+
+O app ja esta preparado para usar Supabase. Enquanto as variaveis abaixo nao forem configuradas, ele continua no modo local do navegador.
+
+### 1. Criar projeto
+
+1. Acesse https://supabase.com/.
+2. Crie um projeto gratuito.
+3. Entre em SQL Editor.
+4. Copie e execute todo o conteudo de `supabase-schema.sql`.
+
+Para facilitar o prototipo, em Authentication > Providers > Email, desative temporariamente a confirmacao obrigatoria de email. Depois, em uma versao mais madura, ela pode ser ativada com fluxo de email completo.
+
+### 2. Pegar as chaves
+
+No Supabase, va em Project Settings > API e copie:
+
+- Project URL
+- anon public key
+
+### 3. Configurar na Vercel
+
+No projeto da Vercel, va em Settings > Environment Variables e crie:
+
+```txt
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua-chave-anon-public
+```
+
+Depois clique em Redeploy no ultimo deploy.
+
+### 4. Como testar
+
+Quando o banco estiver conectado, a tela de login mostra:
+
+```txt
+Banco Supabase conectado.
+```
+
+Ai os cadastros, senhas, boletos e lancamentos ficam salvos fora do navegador.
+
 ## Proximos passos para virar produto real
 
 1. Criar repositorio no GitHub.

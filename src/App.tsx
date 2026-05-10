@@ -18,6 +18,7 @@ import {
   WalletCards,
 } from 'lucide-react'
 import './App.css'
+import { supabase, supabaseConfigured } from './supabase'
 
 type PaymentMethod = 'Cartao de credito' | 'Pix' | 'Debito' | 'Dinheiro'
 type TransactionType = 'income' | 'expense'
@@ -69,6 +70,38 @@ type NewsItem = {
   tag: string
   time: string
   link?: string
+}
+
+type RemoteProfile = {
+  id: string
+  name: string
+  phone_ddd: string
+  phone_number: string
+  email: string
+  birth_date: string
+  role: UserRole
+  created_at: string
+}
+
+type RemoteTransaction = {
+  id: string
+  user_id: string
+  type: TransactionType
+  title: string
+  amount: number | string
+  category: string
+  payment_method: PaymentMethod
+  date: string
+  note: string | null
+}
+
+type RemoteBill = {
+  id: string
+  user_id: string
+  title: string
+  amount: number | string
+  due_date: string
+  paid: boolean
 }
 
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -173,6 +206,45 @@ function getCategories(type: TransactionType) {
   return type === 'income' ? incomeCategories : expenseCategories
 }
 
+function profileFromRemote(profile: RemoteProfile): AppUser {
+  return {
+    id: profile.id,
+    name: profile.name,
+    phoneDdd: profile.phone_ddd,
+    phoneNumber: profile.phone_number,
+    email: profile.email,
+    password: '',
+    birthDate: profile.birth_date,
+    role: profile.role,
+    createdAt: profile.created_at,
+  }
+}
+
+function transactionFromRemote(transaction: RemoteTransaction): Transaction {
+  return {
+    id: transaction.id,
+    userId: transaction.user_id,
+    type: transaction.type,
+    title: transaction.title,
+    amount: Number(transaction.amount),
+    category: transaction.category,
+    paymentMethod: transaction.payment_method,
+    date: transaction.date,
+    note: transaction.note ?? '',
+  }
+}
+
+function billFromRemote(bill: RemoteBill): Bill {
+  return {
+    id: bill.id,
+    userId: bill.user_id,
+    title: bill.title,
+    amount: Number(bill.amount),
+    dueDate: bill.due_date,
+    paid: bill.paid,
+  }
+}
+
 function calculateAge(birthDate: string) {
   if (!birthDate) return '-'
 
@@ -206,6 +278,12 @@ function App() {
   const [newsStatus, setNewsStatus] = useState('Atualizando noticias...')
   const [authView, setAuthView] = useState<AuthView>('login')
   const [authMessage, setAuthMessage] = useState('')
+  const [authLoading, setAuthLoading] = useState(supabaseConfigured)
+  const [dbMessage, setDbMessage] = useState(
+    supabaseConfigured
+      ? 'Banco Supabase conectado.'
+      : 'Modo local: configure o Supabase para salvar fora do navegador.',
+  )
   const [activeTab, setActiveTab] = useState('dashboard')
   const [receiptDraft, setReceiptDraft] = useState<ReceiptDraft | null>(null)
 
@@ -251,6 +329,108 @@ function App() {
     amount: '',
     dueDate: todayBr(),
   })
+
+  async function loadRemoteProfile(userId: string) {
+    if (!supabase) return null
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (error || !data) {
+      setDbMessage('Nao consegui carregar o perfil no banco.')
+      return null
+    }
+
+    const profile = profileFromRemote(data as RemoteProfile)
+    setUsers((currentUsers) => {
+      const withoutProfile = currentUsers.filter((user) => user.id !== profile.id)
+      return [profile, ...withoutProfile]
+    })
+
+    return profile
+  }
+
+  async function loadRemoteProfilesIfAdmin(profile: AppUser) {
+    if (!supabase || profile.role !== 'admin') return
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      setUsers((data as RemoteProfile[]).map(profileFromRemote))
+    }
+  }
+
+  async function loadRemoteFinancialData(userId: string) {
+    if (!supabase) return
+
+    const [transactionsResponse, billsResponse] = await Promise.all([
+      supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false }),
+      supabase
+        .from('bills')
+        .select('*')
+        .eq('user_id', userId)
+        .order('due_date', { ascending: true }),
+    ])
+
+    if (!transactionsResponse.error && transactionsResponse.data) {
+      setTransactions(
+        (transactionsResponse.data as RemoteTransaction[]).map(transactionFromRemote),
+      )
+    }
+
+    if (!billsResponse.error && billsResponse.data) {
+      setBills((billsResponse.data as RemoteBill[]).map(billFromRemote))
+    }
+  }
+
+  async function loadRemoteSession(userId: string) {
+    const profile = await loadRemoteProfile(userId)
+    if (!profile) return
+
+    setSessionId(userId)
+    setActiveTab(profile.role === 'admin' ? 'admin' : 'dashboard')
+    await Promise.all([
+      loadRemoteProfilesIfAdmin(profile),
+      loadRemoteFinancialData(userId),
+    ])
+  }
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthLoading(false)
+      return
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      const userId = data.session?.user.id
+      if (userId) {
+        loadRemoteSession(userId).finally(() => setAuthLoading(false))
+      } else {
+        setSessionId(null)
+        setAuthLoading(false)
+      }
+    })
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user.id) {
+        loadRemoteSession(session.user.id)
+      } else {
+        setSessionId(null)
+      }
+    })
+
+    return () => listener.subscription.unsubscribe()
+  }, [])
 
   useEffect(() => {
     async function loadNews() {
@@ -335,7 +515,7 @@ function App() {
     return 'Alerta vermelho. Seus gastos e boletos em aberto passaram das entradas previstas.'
   }, [summary.health])
 
-  function signUp() {
+  async function signUp() {
     setAuthMessage('')
 
     if (
@@ -372,6 +552,51 @@ function App() {
       createdAt: new Date().toISOString(),
     }
 
+    if (supabase) {
+      const { data, error } = await supabase.auth.signUp({
+        email: newUser.email,
+        password: signupForm.password,
+        options: {
+          data: {
+            name: newUser.name,
+            phoneDdd: newUser.phoneDdd,
+            phoneNumber: newUser.phoneNumber,
+            birthDate: newUser.birthDate,
+            role: newUser.role,
+          },
+        },
+      })
+
+      if (error) {
+        setAuthMessage(error.message)
+        return
+      }
+
+      if (!data.session && data.user) {
+        setAuthMessage(
+          'Cadastro criado. Se o Supabase pedir confirmacao, confirme o email antes de entrar.',
+        )
+        setAuthView('login')
+        return
+      }
+
+      if (data.user) {
+        await loadRemoteSession(data.user.id)
+      }
+
+      setSignupForm({
+        name: '',
+        phoneDdd: '',
+        phoneNumber: '',
+        email: '',
+        password: '',
+        birthDate: '',
+        role: 'user',
+        adminCode: '',
+      })
+      return
+    }
+
     setUsers([newUser, ...users])
     setSessionId(newUser.id)
     setActiveTab(newUser.role === 'admin' ? 'admin' : 'dashboard')
@@ -387,8 +612,25 @@ function App() {
     })
   }
 
-  function login() {
+  async function login() {
     setAuthMessage('')
+
+    if (supabase) {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: loginForm.email.trim().toLowerCase(),
+        password: loginForm.password,
+      })
+
+      if (error || !data.user) {
+        setAuthMessage('Email ou senha incorretos.')
+        return
+      }
+
+      await loadRemoteSession(data.user.id)
+      setLoginForm({ email: '', password: '' })
+      return
+    }
+
     const user = users.find(
       (item) =>
         item.email === loginForm.email.trim().toLowerCase() &&
@@ -405,15 +647,36 @@ function App() {
     setLoginForm({ email: '', password: '' })
   }
 
-  function resetPassword() {
+  async function resetPassword() {
     setAuthMessage('')
 
-    if (!resetForm.email.trim() || !resetForm.newPassword) {
-      setAuthMessage('Digite email e nova senha.')
+    if (!resetForm.email.trim() || (!supabase && !resetForm.newPassword)) {
+      setAuthMessage(
+        supabase
+          ? 'Digite o email cadastrado.'
+          : 'Digite email e nova senha.',
+      )
       return
     }
 
     const email = resetForm.email.trim().toLowerCase()
+
+    if (supabase) {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      })
+
+      if (error) {
+        setAuthMessage(error.message)
+        return
+      }
+
+      setResetForm({ email: '', newPassword: '' })
+      setAuthView('login')
+      setAuthMessage('Enviamos um link de redefinicao para o email cadastrado.')
+      return
+    }
+
     const exists = users.some((user) => user.email === email)
 
     if (!exists) {
@@ -431,33 +694,60 @@ function App() {
     setAuthMessage('Senha redefinida. Entre com a nova senha.')
   }
 
-  function logout() {
+  async function logout() {
+    if (supabase) {
+      await supabase.auth.signOut()
+    }
+
     setSessionId(null)
     setActiveTab('dashboard')
     setAuthView('login')
   }
 
-  function addTransaction() {
+  async function addTransaction() {
     if (!currentUser) return
 
     const amount = Number(transactionForm.amount)
     const isoDate = brToIso(transactionForm.date)
     if (!transactionForm.title.trim() || !amount || !isoDate) return
 
-    setTransactions([
-      {
-        id: crypto.randomUUID(),
-        userId: currentUser.id,
-        type: transactionForm.type,
-        title: transactionForm.title.trim(),
-        amount,
-        category: transactionForm.category,
-        paymentMethod: transactionForm.paymentMethod,
-        date: isoDate,
-        note: transactionForm.note.trim(),
-      },
-      ...transactions,
-    ])
+    const newTransaction: Transaction = {
+      id: crypto.randomUUID(),
+      userId: currentUser.id,
+      type: transactionForm.type,
+      title: transactionForm.title.trim(),
+      amount,
+      category: transactionForm.category,
+      paymentMethod: transactionForm.paymentMethod,
+      date: isoDate,
+      note: transactionForm.note.trim(),
+    }
+
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: newTransaction.userId,
+          type: newTransaction.type,
+          title: newTransaction.title,
+          amount: newTransaction.amount,
+          category: newTransaction.category,
+          payment_method: newTransaction.paymentMethod,
+          date: newTransaction.date,
+          note: newTransaction.note,
+        })
+        .select()
+        .single()
+
+      if (error || !data) return
+
+      setTransactions([
+        transactionFromRemote(data as RemoteTransaction),
+        ...transactions,
+      ])
+    } else {
+      setTransactions([newTransaction, ...transactions])
+    }
 
     setTransactionForm({
       type: 'expense',
@@ -470,24 +760,41 @@ function App() {
     })
   }
 
-  function addBill() {
+  async function addBill() {
     if (!currentUser) return
 
     const amount = Number(billForm.amount)
     const isoDate = brToIso(billForm.dueDate)
     if (!billForm.title.trim() || !amount || !isoDate) return
 
-    setBills([
-      {
-        id: crypto.randomUUID(),
-        userId: currentUser.id,
-        title: billForm.title.trim(),
-        amount,
-        dueDate: isoDate,
-        paid: false,
-      },
-      ...bills,
-    ])
+    const newBill: Bill = {
+      id: crypto.randomUUID(),
+      userId: currentUser.id,
+      title: billForm.title.trim(),
+      amount,
+      dueDate: isoDate,
+      paid: false,
+    }
+
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('bills')
+        .insert({
+          user_id: newBill.userId,
+          title: newBill.title,
+          amount: newBill.amount,
+          due_date: newBill.dueDate,
+          paid: newBill.paid,
+        })
+        .select()
+        .single()
+
+      if (error || !data) return
+
+      setBills([billFromRemote(data as RemoteBill), ...bills])
+    } else {
+      setBills([newBill, ...bills])
+    }
 
     setBillForm({
       title: '',
@@ -523,6 +830,53 @@ function App() {
     setActiveTab('lancamentos')
   }
 
+  async function removeTransaction(transactionId: string) {
+    if (supabase) {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', transactionId)
+
+      if (error) return
+    }
+
+    setTransactions(transactions.filter((item) => item.id !== transactionId))
+  }
+
+  async function toggleBillPaid(bill: Bill) {
+    if (supabase) {
+      const { error } = await supabase
+        .from('bills')
+        .update({ paid: !bill.paid })
+        .eq('id', bill.id)
+
+      if (error) return
+    }
+
+    setBills(
+      bills.map((item) =>
+        item.id === bill.id ? { ...item, paid: !item.paid } : item,
+      ),
+    )
+  }
+
+  if (authLoading) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-card loading-card">
+          <div className="brand">
+            <span className="brand-mark">F</span>
+            <div>
+              <strong>FinFlow</strong>
+              <span>carregando seu acesso</span>
+            </div>
+          </div>
+          <p>Conectando ao banco de dados...</p>
+        </section>
+      </main>
+    )
+  }
+
   if (!currentUser) {
     return (
       <main className="auth-shell">
@@ -542,6 +896,9 @@ function App() {
         </section>
 
         <section className="auth-card">
+          <p className={`db-status ${supabaseConfigured ? 'online' : ''}`}>
+            {dbMessage}
+          </p>
           <div className="auth-tabs">
             <button
               className={authView === 'login' ? 'selected' : ''}
@@ -693,14 +1050,16 @@ function App() {
                   setResetForm({ ...resetForm, email: event.target.value })
                 }
               />
-              <input
-                placeholder="Nova senha"
-                type="password"
-                value={resetForm.newPassword}
-                onChange={(event) =>
-                  setResetForm({ ...resetForm, newPassword: event.target.value })
-                }
-              />
+              {!supabaseConfigured && (
+                <input
+                  placeholder="Nova senha"
+                  type="password"
+                  value={resetForm.newPassword}
+                  onChange={(event) =>
+                    setResetForm({ ...resetForm, newPassword: event.target.value })
+                  }
+                />
+              )}
               <button
                 className="primary-action full"
                 type="button"
@@ -1053,11 +1412,7 @@ function App() {
                       className="icon-button"
                       type="button"
                       aria-label="Remover lancamento"
-                      onClick={() =>
-                        setTransactions(
-                          transactions.filter((item) => item.id !== transaction.id),
-                        )
-                      }
+                      onClick={() => removeTransaction(transaction.id)}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -1123,13 +1478,7 @@ function App() {
                     <button
                       className={`status-toggle ${bill.paid ? 'paid' : ''}`}
                       type="button"
-                      onClick={() =>
-                        setBills(
-                          bills.map((item) =>
-                            item.id === bill.id ? { ...item, paid: !item.paid } : item,
-                          ),
-                        )
-                      }
+                      onClick={() => toggleBillPaid(bill)}
                     >
                       {bill.paid ? 'Pago' : 'Aberto'}
                     </button>

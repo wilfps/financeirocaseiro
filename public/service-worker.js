@@ -1,4 +1,4 @@
-const CACHE_NAME = 'finflow-v1'
+const CACHE_NAME = 'finflow-v2'
 const APP_ASSETS = ['/', '/manifest.webmanifest', '/favicon.svg']
 
 self.addEventListener('install', (event) => {

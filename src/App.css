@@ -55,6 +55,25 @@
   box-shadow: 0 20px 70px rgba(17, 24, 39, 0.12);
 }
 
+.loading-card {
+  justify-self: center;
+  width: min(460px, 100%);
+}
+
+.db-status {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.db-status.online {
+  background: #d1fae5;
+  color: #065f46;
+}
+
 .auth-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
