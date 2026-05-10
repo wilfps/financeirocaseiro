@@ -295,7 +295,7 @@ function App() {
   const [authView, setAuthView] = useState<AuthView>('login')
   const [authMessage, setAuthMessage] = useState('')
   const [authLoading, setAuthLoading] = useState(supabaseConfigured)
-  const [dbMessage, setDbMessage] = useState(
+  const [, setDbMessage] = useState(
     supabaseConfigured
       ? 'Banco Supabase conectado.'
       : 'Modo local: configure o Supabase para salvar fora do navegador.',
@@ -597,6 +597,21 @@ function App() {
       })
 
       if (error) {
+        const message = error.message.toLowerCase()
+
+        if (message.includes('rate limit')) {
+          setAuthMessage(
+            'O Supabase bloqueou novos emails por alguns minutos. Tente entrar com a conta ja criada ou espere um pouco.',
+          )
+          return
+        }
+
+        if (message.includes('already registered') || message.includes('already exists')) {
+          setAuthMessage('Esse email ja tem conta. Use a aba Entrar.')
+          setAuthView('login')
+          return
+        }
+
         setAuthMessage(error.message)
         return
       }
@@ -965,7 +980,9 @@ function App() {
 
         <section className="auth-card">
           <p className={`db-status ${supabaseConfigured ? 'online' : ''}`}>
-            {dbMessage}
+            {supabaseConfigured
+              ? 'Banco Supabase conectado.'
+              : 'Modo local: configure o Supabase para salvar fora do navegador.'}
           </p>
           <div className="auth-tabs">
             <button
