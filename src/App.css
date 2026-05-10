@@ -55,7 +55,7 @@
 }
 
 .auth-logo-lockup img {
-  width: 176px;
+  width: 214px;
   height: auto;
 }
 
@@ -335,14 +335,12 @@
 }
 
 .brand-mark {
-  width: 42px;
-  height: 42px;
-  display: grid;
-  place-items: center;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #111827, #173d36);
-  color: #8fffe0;
-  font-weight: 900;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  display: block;
+  border-radius: 14px;
+  box-shadow: 0 12px 24px rgba(16, 24, 39, 0.16);
 }
 
 .brand strong,

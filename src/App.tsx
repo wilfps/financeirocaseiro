@@ -964,7 +964,7 @@ function App() {
       <main className="auth-shell">
         <section className="auth-card loading-card">
           <div className="brand">
-            <span className="brand-mark">F</span>
+            <img className="brand-mark" src="/finflow-mark.svg" alt="" />
             <div>
               <strong>FinFlow</strong>
               <span>carregando seu acesso</span>
@@ -1194,7 +1194,7 @@ function App() {
     <main className="app-shell">
       <aside className="sidebar" aria-label="Menu principal">
         <div className="brand">
-          <span className="brand-mark">F</span>
+          <img className="brand-mark" src="/finflow-mark.svg" alt="" />
           <div>
             <strong>FinFlow</strong>
             <span>{currentUser.role === 'admin' ? 'painel ADM' : 'dinheiro sem drama'}</span>
