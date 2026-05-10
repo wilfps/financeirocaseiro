@@ -869,19 +869,19 @@ function App() {
     return (
       <main className="auth-shell">
         <section className="auth-hero">
-          <div className="brand auth-brand">
-            <span className="brand-mark">F</span>
+          <div className="auth-logo-lockup">
+            <img src="/finflow-logo.svg" alt="FinFlow" />
             <div>
               <strong>FinFlow</strong>
-              <span>dinheiro sem drama</span>
+              <span>controle financeiro inteligente</span>
             </div>
           </div>
           <div className="auth-copy">
-            <span className="hero-pill">feito para celular • direto • visual</span>
-            <h1>Organize sua grana sem planilha chata.</h1>
+            <span className="hero-pill">feito para quem quer clareza</span>
+            <h1>Controle sua grana sem virar refem de planilha.</h1>
             <p>
-              Gastos, boletos, formas de pagamento e IA em um painel que muda
-              na hora conforme voce preenche.
+              Veja ganhos, gastos, boletos e formas de pagamento em um painel
+              simples, bonito e atualizado na hora.
             </p>
           </div>
           <div className="phone-preview" aria-hidden="true">
@@ -904,9 +904,9 @@ function App() {
             </div>
           </div>
           <div className="auth-highlights">
-            <span>Dashboard vivo</span>
-            <span>Comprovantes</span>
-            <span>Boletos</span>
+            <span>Dashboard em tempo real</span>
+            <span>Boletos no radar</span>
+            <span>IA financeira</span>
           </div>
         </section>
 
@@ -933,7 +933,7 @@ function App() {
 
           {authView === 'login' && (
             <div className="auth-form">
-              <h2>Login</h2>
+              <h2>Acesse sua conta</h2>
               <input
                 placeholder="Email"
                 type="email"
@@ -965,7 +965,7 @@ function App() {
 
           {authView === 'signup' && (
             <div className="auth-form">
-              <h2>Cadastro</h2>
+              <h2>Crie sua conta</h2>
               <input
                 placeholder="Nome completo"
                 value={signupForm.name}

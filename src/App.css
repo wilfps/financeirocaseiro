@@ -5,7 +5,7 @@
 
 .auth-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) 430px;
+  grid-template-columns: minmax(0, 1fr) 430px;
   align-items: center;
   gap: 28px;
   padding: 34px;
@@ -45,12 +45,31 @@
   background: rgba(6, 214, 160, 0.16);
 }
 
+.auth-logo-lockup {
+  z-index: 1;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  align-self: start;
+}
+
+.auth-logo-lockup img {
+  width: 176px;
+  height: auto;
+}
+
+.auth-logo-lockup strong,
+.auth-logo-lockup span {
+  display: none;
+}
+
 .auth-hero h1 {
   max-width: 620px;
   color: #111827;
-  font-size: 60px;
-  line-height: 0.98;
-  letter-spacing: -0.03em;
+  font-size: 56px;
+  line-height: 1;
+  letter-spacing: -0.02em;
 }
 
 .auth-hero p {
@@ -117,7 +136,7 @@
 }
 
 .phone-top strong {
-  font-size: 34px;
+  font-size: 31px;
 }
 
 .preview-card {
