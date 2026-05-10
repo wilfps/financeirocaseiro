@@ -245,6 +245,22 @@ function billFromRemote(bill: RemoteBill): Bill {
   }
 }
 
+function fallbackProfileFromEmail(userId: string, email?: string | null): AppUser {
+  const safeEmail = email ?? ''
+
+  return {
+    id: userId,
+    name: safeEmail.split('@')[0] || 'Usuario',
+    phoneDdd: '00',
+    phoneNumber: '000000000',
+    email: safeEmail,
+    password: '',
+    birthDate: '2000-01-01',
+    role: safeEmail === 'williangbello@gmail.com' ? 'admin' : 'user',
+    createdAt: new Date().toISOString(),
+  }
+}
+
 function calculateAge(birthDate: string) {
   if (!birthDate) return '-'
 
@@ -343,8 +359,15 @@ function App() {
       )
 
       if (createError || !createdProfile) {
-        setDbMessage('Nao consegui criar o perfil no banco.')
-        return null
+        const { data: authData } = await supabase.auth.getUser()
+        const profile = fallbackProfileFromEmail(userId, authData.user?.email)
+
+        setUsers((currentUsers) => {
+          const withoutProfile = currentUsers.filter((user) => user.id !== profile.id)
+          return [profile, ...withoutProfile]
+        })
+        setDbMessage('Login liberado. Perfil do banco sera ajustado depois.')
+        return profile
       }
 
       const profile = profileFromRemote(createdProfile as RemoteProfile)
