@@ -83,6 +83,28 @@ const paymentMethods: PaymentMethod[] = [
   'Dinheiro',
 ]
 
+const expenseCategories = [
+  'Alimentacao',
+  'Moradia',
+  'Transporte',
+  'Contas',
+  'Cartao',
+  'Lazer',
+  'Saude',
+  'Educacao',
+  'Investimentos',
+  'Outros',
+]
+
+const incomeCategories = [
+  'Salario',
+  'Freelance',
+  'Vendas',
+  'Renda extra',
+  'Investimentos',
+  'Outros',
+]
+
 const fallbackNews: NewsItem[] = [
   {
     title: 'Tesouro Selic: onde entra na reserva de emergencia',
@@ -114,10 +136,50 @@ function useLocalStorage<T>(key: string, initialValue: T) {
   return [value, setValue] as const
 }
 
+function todayBr() {
+  return isoToBr(new Date().toISOString().slice(0, 10))
+}
+
+function isoToBr(value: string) {
+  if (!value) return ''
+
+  const [year, month, day] = value.split('-')
+  if (!year || !month || !day) return value
+
+  return `${day}/${month}/${year}`
+}
+
+function brToIso(value: string) {
+  const [day, month, year] = value.split('/')
+  if (!day || !month || !year || year.length !== 4) return ''
+
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+}
+
+function formatDateForDisplay(value: string) {
+  return value.includes('-') ? isoToBr(value) : value
+}
+
+function formatBrDateInput(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 8)
+  const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(
+    Boolean,
+  )
+
+  return parts.join('/')
+}
+
+function getCategories(type: TransactionType) {
+  return type === 'income' ? incomeCategories : expenseCategories
+}
+
 function calculateAge(birthDate: string) {
   if (!birthDate) return '-'
 
-  const birth = new Date(`${birthDate}T00:00:00`)
+  const normalizedDate = birthDate.includes('/') ? brToIso(birthDate) : birthDate
+  if (!normalizedDate) return '-'
+
+  const birth = new Date(`${normalizedDate}T00:00:00`)
   const today = new Date()
   let age = today.getFullYear() - birth.getFullYear()
   const monthDiff = today.getMonth() - birth.getMonth()
@@ -178,16 +240,16 @@ function App() {
     type: 'expense' as TransactionType,
     title: '',
     amount: '',
-    category: '',
+    category: expenseCategories[0],
     paymentMethod: 'Pix' as PaymentMethod,
-    date: new Date().toISOString().slice(0, 10),
+    date: todayBr(),
     note: '',
   })
 
   const [billForm, setBillForm] = useState({
     title: '',
     amount: '',
-    dueDate: new Date().toISOString().slice(0, 10),
+    dueDate: todayBr(),
   })
 
   useEffect(() => {
@@ -282,9 +344,9 @@ function App() {
       !signupForm.phoneNumber.trim() ||
       !signupForm.email.trim() ||
       !signupForm.password ||
-      !signupForm.birthDate
+      !brToIso(signupForm.birthDate)
     ) {
-      setAuthMessage('Preencha todos os campos para criar a conta.')
+      setAuthMessage('Preencha todos os campos. A data deve estar em dd/mm/aaaa.')
       return
     }
 
@@ -305,7 +367,7 @@ function App() {
       phoneNumber: signupForm.phoneNumber.trim(),
       email: signupForm.email.trim().toLowerCase(),
       password: signupForm.password,
-      birthDate: signupForm.birthDate,
+      birthDate: brToIso(signupForm.birthDate),
       role: signupForm.role,
       createdAt: new Date().toISOString(),
     }
@@ -379,7 +441,8 @@ function App() {
     if (!currentUser) return
 
     const amount = Number(transactionForm.amount)
-    if (!transactionForm.title.trim() || !amount) return
+    const isoDate = brToIso(transactionForm.date)
+    if (!transactionForm.title.trim() || !amount || !isoDate) return
 
     setTransactions([
       {
@@ -388,9 +451,9 @@ function App() {
         type: transactionForm.type,
         title: transactionForm.title.trim(),
         amount,
-        category: transactionForm.category.trim() || 'Sem categoria',
+        category: transactionForm.category,
         paymentMethod: transactionForm.paymentMethod,
-        date: transactionForm.date,
+        date: isoDate,
         note: transactionForm.note.trim(),
       },
       ...transactions,
@@ -400,9 +463,9 @@ function App() {
       type: 'expense',
       title: '',
       amount: '',
-      category: '',
+      category: expenseCategories[0],
       paymentMethod: 'Pix',
-      date: new Date().toISOString().slice(0, 10),
+      date: todayBr(),
       note: '',
     })
   }
@@ -411,7 +474,8 @@ function App() {
     if (!currentUser) return
 
     const amount = Number(billForm.amount)
-    if (!billForm.title.trim() || !amount) return
+    const isoDate = brToIso(billForm.dueDate)
+    if (!billForm.title.trim() || !amount || !isoDate) return
 
     setBills([
       {
@@ -419,7 +483,7 @@ function App() {
         userId: currentUser.id,
         title: billForm.title.trim(),
         amount,
-        dueDate: billForm.dueDate,
+        dueDate: isoDate,
         paid: false,
       },
       ...bills,
@@ -428,7 +492,7 @@ function App() {
     setBillForm({
       title: '',
       amount: '',
-      dueDate: new Date().toISOString().slice(0, 10),
+      dueDate: todayBr(),
     })
   }
 
@@ -450,9 +514,9 @@ function App() {
       type: 'expense',
       title: receiptDraft.guessTitle,
       amount: String(receiptDraft.guessAmount),
-      category: 'Detectado pela IA',
+      category: 'Outros',
       paymentMethod: receiptDraft.guessMethod,
-      date: new Date().toISOString().slice(0, 10),
+      date: todayBr(),
       note: `Arquivo: ${receiptDraft.fileName}`,
     })
     setReceiptDraft(null)
@@ -573,12 +637,17 @@ function App() {
                 }
               />
               <label className="field-label">
-                Data de nascimento
+                Data de nascimento (dd/mm/aaaa)
                 <input
-                  type="date"
+                  placeholder="dd/mm/aaaa"
+                  inputMode="numeric"
+                  maxLength={10}
                   value={signupForm.birthDate}
                   onChange={(event) =>
-                    setSignupForm({ ...signupForm, birthDate: event.target.value })
+                    setSignupForm({
+                      ...signupForm,
+                      birthDate: formatBrDateInput(event.target.value),
+                    })
                   }
                 />
               </label>
@@ -868,14 +937,26 @@ function App() {
               <div className="segmented">
                 <button
                   className={transactionForm.type === 'expense' ? 'selected' : ''}
-                  onClick={() => setTransactionForm({ ...transactionForm, type: 'expense' })}
+                  onClick={() =>
+                    setTransactionForm({
+                      ...transactionForm,
+                      type: 'expense',
+                      category: expenseCategories[0],
+                    })
+                  }
                   type="button"
                 >
                   Gasto
                 </button>
                 <button
                   className={transactionForm.type === 'income' ? 'selected' : ''}
-                  onClick={() => setTransactionForm({ ...transactionForm, type: 'income' })}
+                  onClick={() =>
+                    setTransactionForm({
+                      ...transactionForm,
+                      type: 'income',
+                      category: incomeCategories[0],
+                    })
+                  }
                   type="button"
                 >
                   Ganho
@@ -897,13 +978,19 @@ function App() {
                   setTransactionForm({ ...transactionForm, amount: event.target.value })
                 }
               />
-              <input
-                placeholder="Categoria"
+              <label className="field-label">
+                Categoria
+                <select
                 value={transactionForm.category}
                 onChange={(event) =>
                   setTransactionForm({ ...transactionForm, category: event.target.value })
                 }
-              />
+                >
+                  {getCategories(transactionForm.type).map((category) => (
+                    <option key={category}>{category}</option>
+                  ))}
+                </select>
+              </label>
               <select
                 value={transactionForm.paymentMethod}
                 onChange={(event) =>
@@ -918,10 +1005,15 @@ function App() {
                 ))}
               </select>
               <input
-                type="date"
+                placeholder="Data do lancamento (dd/mm/aaaa)"
+                inputMode="numeric"
+                maxLength={10}
                 value={transactionForm.date}
                 onChange={(event) =>
-                  setTransactionForm({ ...transactionForm, date: event.target.value })
+                  setTransactionForm({
+                    ...transactionForm,
+                    date: formatBrDateInput(event.target.value),
+                  })
                 }
               />
               <textarea
@@ -950,7 +1042,7 @@ function App() {
                     <div>
                       <strong>{transaction.title}</strong>
                       <span>
-                        {transaction.date} - {transaction.category} - {transaction.paymentMethod}
+                        {formatDateForDisplay(transaction.date)} - {transaction.category} - {transaction.paymentMethod}
                       </span>
                     </div>
                     <b className={transaction.type}>
@@ -996,9 +1088,16 @@ function App() {
                 onChange={(event) => setBillForm({ ...billForm, amount: event.target.value })}
               />
               <input
-                type="date"
+                placeholder="Vencimento (dd/mm/aaaa)"
+                inputMode="numeric"
+                maxLength={10}
                 value={billForm.dueDate}
-                onChange={(event) => setBillForm({ ...billForm, dueDate: event.target.value })}
+                onChange={(event) =>
+                  setBillForm({
+                    ...billForm,
+                    dueDate: formatBrDateInput(event.target.value),
+                  })
+                }
               />
               <button className="primary-action full" type="button" onClick={addBill}>
                 <Plus size={18} /> Salvar boleto
@@ -1018,7 +1117,7 @@ function App() {
                   <div className="list-item" key={bill.id}>
                     <div>
                       <strong>{bill.title}</strong>
-                      <span>vence em {bill.dueDate}</span>
+                      <span>vence em {formatDateForDisplay(bill.dueDate)}</span>
                     </div>
                     <b>{currency.format(bill.amount)}</b>
                     <button
