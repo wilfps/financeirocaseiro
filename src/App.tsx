@@ -261,6 +261,21 @@ function fallbackProfileFromEmail(userId: string, email?: string | null): AppUse
   }
 }
 
+function profileQualityScore(user: AppUser, currentUserId?: string) {
+  const hasRealPhone =
+    user.phoneDdd !== '00' &&
+    user.phoneNumber !== '000000000' &&
+    Boolean(user.phoneNumber.trim())
+  const hasFullName = user.name.trim().includes(' ')
+
+  return (
+    (hasRealPhone ? 10 : 0) +
+    (hasFullName ? 4 : 0) +
+    (user.id === currentUserId ? 3 : 0) +
+    (user.role === 'admin' ? 1 : 0)
+  )
+}
+
 function calculateAge(birthDate: string) {
   if (!birthDate) return '-'
 
@@ -549,6 +564,30 @@ function App() {
 
     return 'Alerta vermelho. Seus gastos e boletos em aberto passaram das entradas previstas.'
   }, [summary.health])
+
+  const adminUsers = useMemo(() => {
+    const usersByEmail = new Map<string, AppUser>()
+
+    users.forEach((user) => {
+      const emailKey = user.email.trim().toLowerCase()
+      const key = emailKey || user.id
+      const savedUser = usersByEmail.get(key)
+
+      if (!savedUser) {
+        usersByEmail.set(key, user)
+        return
+      }
+
+      const savedScore = profileQualityScore(savedUser, currentUser?.id)
+      const userScore = profileQualityScore(user, currentUser?.id)
+
+      if (userScore > savedScore) {
+        usersByEmail.set(key, user)
+      }
+    })
+
+    return Array.from(usersByEmail.values())
+  }, [currentUser?.id, users])
 
   async function signUp() {
     setAuthMessage('')
@@ -1233,17 +1272,17 @@ function App() {
           <section className="admin-grid">
             <article className="metric-card">
               <span>Total de cadastros</span>
-              <strong>{users.length}</strong>
+              <strong>{adminUsers.length}</strong>
               <small>usuarios criados neste ambiente</small>
             </article>
             <article className="metric-card">
               <span>Contas normais</span>
-              <strong>{users.filter((user) => user.role === 'user').length}</strong>
+              <strong>{adminUsers.filter((user) => user.role === 'user').length}</strong>
               <small>pessoas usando dashboard</small>
             </article>
             <article className="metric-card">
               <span>Administradores</span>
-              <strong>{users.filter((user) => user.role === 'admin').length}</strong>
+              <strong>{adminUsers.filter((user) => user.role === 'admin').length}</strong>
               <small>acesso ao painel ADM</small>
             </article>
 
@@ -1260,7 +1299,7 @@ function App() {
                   <span>Idade</span>
                   <span>Tipo</span>
                 </div>
-                {users.map((user) => (
+                {adminUsers.map((user) => (
                   <div className="admin-row" key={user.id}>
                     <span>{user.name}</span>
                     <span>{user.email}</span>
