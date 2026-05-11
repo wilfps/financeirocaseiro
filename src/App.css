@@ -958,11 +958,11 @@ textarea {
 
   .app-shell {
     grid-template-columns: 1fr;
+    padding-bottom: 92px;
   }
 
   .sidebar {
-    position: sticky;
-    top: 0;
+    position: static;
     z-index: 20;
     height: auto;
     padding: 12px;
@@ -981,10 +981,20 @@ textarea {
   }
 
   nav {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    z-index: 40;
     display: flex;
     gap: 8px;
     overflow-x: auto;
-    padding-bottom: 4px;
+    padding: 8px;
+    border: 1px solid rgba(17, 24, 39, 0.1);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 18px 50px rgba(17, 24, 39, 0.18);
+    backdrop-filter: blur(18px);
     scrollbar-width: none;
   }
 
@@ -994,10 +1004,21 @@ textarea {
 
   nav button {
     width: auto;
-    min-width: max-content;
+    min-width: 68px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    gap: 3px;
     justify-content: center;
-    font-size: 12px;
-    padding: 10px 12px;
+    font-size: 10px;
+    line-height: 1;
+    padding: 7px 9px;
+    border-radius: 14px;
+  }
+
+  nav button svg {
+    width: 19px;
+    height: 19px;
   }
 
   .logout-button {
@@ -1101,13 +1122,7 @@ textarea {
     font-size: 27px;
   }
 
-  .app-shell {
-    display: block;
-    padding-bottom: 88px;
-  }
-
   .sidebar {
-    position: static;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1141,38 +1156,8 @@ textarea {
     display: none;
   }
 
-  nav {
-    position: fixed;
-    left: 10px;
-    right: 10px;
-    bottom: 10px;
-    z-index: 40;
-    display: flex;
-    gap: 6px;
-    padding: 8px;
-    border: 1px solid rgba(17, 24, 39, 0.1);
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.94);
-    box-shadow: 0 18px 50px rgba(17, 24, 39, 0.18);
-    backdrop-filter: blur(18px);
-  }
-
   nav button {
-    min-height: 48px;
     min-width: 64px;
-    flex: 0 0 auto;
-    display: grid;
-    place-items: center;
-    gap: 3px;
-    padding: 7px 9px;
-    border-radius: 14px;
-    font-size: 10px;
-    line-height: 1;
-  }
-
-  nav button svg {
-    width: 19px;
-    height: 19px;
   }
 
   .logout-button {
