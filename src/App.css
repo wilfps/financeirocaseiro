@@ -1107,16 +1107,22 @@ textarea {
   }
 
   .sidebar {
+    position: static;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
     padding: 10px 12px;
+    min-height: 58px;
   }
 
   .brand {
     min-width: 0;
     margin-bottom: 0;
+  }
+
+  .brand div {
+    min-width: 0;
   }
 
   .brand-mark {
@@ -1128,10 +1134,11 @@ textarea {
 
   .brand strong {
     font-size: 18px;
+    white-space: nowrap;
   }
 
   .brand div > span {
-    font-size: 12px;
+    display: none;
   }
 
   nav {
@@ -1170,6 +1177,7 @@ textarea {
 
   .logout-button {
     width: auto;
+    flex: 0 0 auto;
     min-height: 36px;
     margin-top: 0;
     padding: 0 12px;
