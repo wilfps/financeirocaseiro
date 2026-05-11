@@ -648,6 +648,64 @@ function App() {
     return Array.from(usersByEmail.values())
   }, [currentUser?.id, users])
 
+  function renderNavigation(className: string) {
+    return (
+      <nav className={className}>
+        {currentUser?.role === 'admin' && (
+          <button
+            className={activeTab === 'admin' ? 'is-active' : ''}
+            onClick={() => setActiveTab('admin')}
+            type="button"
+          >
+            <Shield size={18} /> ADM
+          </button>
+        )}
+        <button
+          className={activeTab === 'dashboard' ? 'is-active' : ''}
+          onClick={() => setActiveTab('dashboard')}
+          type="button"
+        >
+          <LineChart size={18} /> Dashboard
+        </button>
+        <button
+          className={activeTab === 'lancamentos' ? 'is-active' : ''}
+          onClick={() => setActiveTab('lancamentos')}
+          type="button"
+        >
+          <WalletCards size={18} /> Lancamentos
+        </button>
+        <button
+          className={activeTab === 'boletos' ? 'is-active' : ''}
+          onClick={() => setActiveTab('boletos')}
+          type="button"
+        >
+          <Bell size={18} /> Boletos
+        </button>
+        <button
+          className={activeTab === 'ia' ? 'is-active' : ''}
+          onClick={() => setActiveTab('ia')}
+          type="button"
+        >
+          <Sparkles size={18} /> IA
+        </button>
+        <button
+          className={activeTab === 'news' ? 'is-active' : ''}
+          onClick={() => setActiveTab('news')}
+          type="button"
+        >
+          <BookOpen size={18} /> Aprender
+        </button>
+        <button
+          className={activeTab === 'sugestoes' ? 'is-active' : ''}
+          onClick={() => setActiveTab('sugestoes')}
+          type="button"
+        >
+          <ReceiptText size={18} /> Sugestoes
+        </button>
+      </nav>
+    )
+  }
+
   async function signUp() {
     setAuthMessage('')
 
@@ -1304,64 +1362,14 @@ function App() {
           </div>
         </div>
 
-        <nav>
-          {currentUser.role === 'admin' && (
-            <button
-              className={activeTab === 'admin' ? 'is-active' : ''}
-              onClick={() => setActiveTab('admin')}
-              type="button"
-            >
-              <Shield size={18} /> ADM
-            </button>
-          )}
-          <button
-            className={activeTab === 'dashboard' ? 'is-active' : ''}
-            onClick={() => setActiveTab('dashboard')}
-            type="button"
-          >
-            <LineChart size={18} /> Dashboard
-          </button>
-          <button
-            className={activeTab === 'lancamentos' ? 'is-active' : ''}
-            onClick={() => setActiveTab('lancamentos')}
-            type="button"
-          >
-            <WalletCards size={18} /> Lancamentos
-          </button>
-          <button
-            className={activeTab === 'boletos' ? 'is-active' : ''}
-            onClick={() => setActiveTab('boletos')}
-            type="button"
-          >
-            <Bell size={18} /> Boletos
-          </button>
-          <button
-            className={activeTab === 'ia' ? 'is-active' : ''}
-            onClick={() => setActiveTab('ia')}
-            type="button"
-          >
-            <Sparkles size={18} /> IA
-          </button>
-          <button
-            className={activeTab === 'news' ? 'is-active' : ''}
-            onClick={() => setActiveTab('news')}
-            type="button"
-          >
-            <BookOpen size={18} /> Aprender
-          </button>
-          <button
-            className={activeTab === 'sugestoes' ? 'is-active' : ''}
-            onClick={() => setActiveTab('sugestoes')}
-            type="button"
-          >
-            <ReceiptText size={18} /> Sugestoes
-          </button>
-        </nav>
+        {renderNavigation('sidebar-nav')}
 
         <button className="logout-button" type="button" onClick={logout}>
           <LogOut size={17} /> Sair
         </button>
       </aside>
+
+      {renderNavigation('mobile-tabbar')}
 
       <section className="workspace">
         <header className="topbar">
