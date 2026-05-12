@@ -208,6 +208,15 @@ function brToIso(value: string) {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
 }
 
+function addMonthsToIsoDate(value: string, monthsToAdd: number) {
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(year, month - 1 + monthsToAdd, 1)
+  const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
+  date.setDate(Math.min(day, lastDay))
+
+  return date.toISOString().slice(0, 10)
+}
+
 function formatDateForDisplay(value: string) {
   return value.includes('-') ? isoToBr(value) : value
 }
@@ -420,6 +429,8 @@ function App() {
     title: '',
     amount: '',
     dueDate: todayBr(),
+    installments: '1',
+    paidInstallments: '0',
   })
 
   async function loadRemoteProfile(userId: string) {
@@ -1059,29 +1070,39 @@ function App() {
       return
     }
 
-    const newBill: Bill = {
+    const installments = Math.max(1, Math.floor(Number(billForm.installments) || 1))
+    const paidInstallments = Math.min(
+      installments,
+      Math.max(0, Math.floor(Number(billForm.paidInstallments) || 0)),
+    )
+    const installmentAmount = Number((amount / installments).toFixed(2))
+    const billsToCreate: Bill[] = Array.from({ length: installments }, (_, index) => ({
       id: crypto.randomUUID(),
       userId: currentUser.id,
-      title: billForm.title.trim(),
-      amount,
-      dueDate: isoDate,
-      paid: false,
-    }
+      title:
+        installments > 1
+          ? `${billForm.title.trim()} - parcela ${index + 1}/${installments}`
+          : billForm.title.trim(),
+      amount: installmentAmount,
+      dueDate: addMonthsToIsoDate(isoDate, index),
+      paid: index < paidInstallments,
+    }))
 
     if (supabase) {
       const { data, error } = await supabase
         .from('bills')
-        .insert({
-          user_id: newBill.userId,
-          title: newBill.title,
-          amount: newBill.amount,
-          due_date: newBill.dueDate,
-          paid: newBill.paid,
-        })
+        .insert(
+          billsToCreate.map((bill) => ({
+            user_id: bill.userId,
+            title: bill.title,
+            amount: bill.amount,
+            due_date: bill.dueDate,
+            paid: bill.paid,
+          })),
+        )
         .select()
-        .single()
 
-      if (error || !data) {
+      if (error || !data?.length) {
         setBillMessage({
           type: 'error',
           text: 'Nao consegui salvar no banco. Tente novamente.',
@@ -1089,19 +1110,27 @@ function App() {
         return
       }
 
-      setBills((currentBills) => [billFromRemote(data as RemoteBill), ...currentBills])
+      setBills((currentBills) => [
+        ...(data as RemoteBill[]).map(billFromRemote),
+        ...currentBills,
+      ])
     } else {
-      setBills((currentBills) => [newBill, ...currentBills])
+      setBills((currentBills) => [...billsToCreate, ...currentBills])
     }
 
     setBillForm({
       title: '',
       amount: '',
       dueDate: todayBr(),
+      installments: '1',
+      paidInstallments: '0',
     })
     setBillMessage({
       type: 'success',
-      text: 'Boleto salvo. Dashboard atualizado na hora.',
+      text:
+        installments > 1
+          ? `${installments} parcelas criadas. Dashboard atualizado na hora.`
+          : 'Boleto salvo. Dashboard atualizado na hora.',
     })
   }
 
@@ -1791,6 +1820,44 @@ function App() {
                   })
                 }
               />
+              <div className="installment-grid">
+                <label className="field-label">
+                  Parcelas
+                  <input
+                    placeholder="Ex: 5"
+                    inputMode="numeric"
+                    value={billForm.installments}
+                    onChange={(event) => {
+                      setBillMessage(null)
+                      setBillForm({
+                        ...billForm,
+                        installments: event.target.value.replace(/\D/g, ''),
+                      })
+                    }}
+                  />
+                </label>
+                <label className="field-label">
+                  Ja pagas
+                  <input
+                    placeholder="Ex: 2"
+                    inputMode="numeric"
+                    value={billForm.paidInstallments}
+                    onChange={(event) => {
+                      setBillMessage(null)
+                      setBillForm({
+                        ...billForm,
+                        paidInstallments: event.target.value.replace(/\D/g, ''),
+                      })
+                    }}
+                  />
+                </label>
+              </div>
+              {Number(billForm.installments) > 1 && (
+                <p className="helper-text">
+                  O app vai dividir {currency.format(parseMoneyValue(billForm.amount))} em{' '}
+                  {billForm.installments} parcelas mensais a partir do vencimento escolhido.
+                </p>
+              )}
               <button className="primary-action full" type="button" onClick={addBill}>
                 <Plus size={18} /> Salvar boleto
               </button>
