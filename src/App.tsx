@@ -1133,16 +1133,24 @@ function App() {
   }
 
   async function removeTransaction(transactionId: string) {
+    const shouldRemove = window.confirm('Tem certeza que quer excluir este lancamento?')
+    if (!shouldRemove) return
+
     if (supabase) {
       const { error } = await supabase
         .from('transactions')
         .delete()
         .eq('id', transactionId)
 
-      if (error) return
+      if (error) {
+        window.alert('Nao consegui excluir no banco. Tente novamente.')
+        return
+      }
     }
 
-    setTransactions(transactions.filter((item) => item.id !== transactionId))
+    setTransactions((currentTransactions) =>
+      currentTransactions.filter((item) => item.id !== transactionId),
+    )
   }
 
   async function toggleBillPaid(bill: Bill) {
@@ -1590,6 +1598,15 @@ function App() {
                       {transaction.type === 'income' ? '+' : '-'}
                       {currency.format(transaction.amount)}
                     </b>
+                    <button
+                      className="icon-button danger"
+                      type="button"
+                      aria-label="Excluir lancamento"
+                      title="Excluir lancamento"
+                      onClick={() => removeTransaction(transaction.id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 ))}
               </div>

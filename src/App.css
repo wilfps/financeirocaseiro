@@ -795,6 +795,15 @@ textarea {
   place-items: center;
 }
 
+.icon-button.danger {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.icon-button.danger:hover {
+  background: #fecaca;
+}
+
 .status-toggle {
   padding: 0 12px;
   font-weight: 800;
