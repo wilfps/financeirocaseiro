@@ -152,6 +152,22 @@ $$;
 
 grant execute on function public.ensure_profile() to authenticated;
 
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where id = auth.uid()
+      and role = 'admin'
+  );
+$$;
+
+grant execute on function public.is_admin() to authenticated;
+
 alter table public.profiles enable row level security;
 alter table public.transactions enable row level security;
 alter table public.bills enable row level security;
@@ -163,11 +179,7 @@ on public.profiles for select
 to authenticated
 using (
   id = auth.uid()
-  or exists (
-    select 1 from public.profiles admin_profile
-    where admin_profile.id = auth.uid()
-      and admin_profile.role = 'admin'
-  )
+  or public.is_admin()
 );
 
 drop policy if exists "profiles_insert_own" on public.profiles;
@@ -185,11 +197,7 @@ on public.transactions for select
 to authenticated
 using (
   user_id = auth.uid()
-  or exists (
-    select 1 from public.profiles admin_profile
-    where admin_profile.id = auth.uid()
-      and admin_profile.role = 'admin'
-  )
+  or public.is_admin()
 );
 
 drop policy if exists "transactions_insert_own" on public.transactions;
@@ -211,11 +219,7 @@ on public.bills for select
 to authenticated
 using (
   user_id = auth.uid()
-  or exists (
-    select 1 from public.profiles admin_profile
-    where admin_profile.id = auth.uid()
-      and admin_profile.role = 'admin'
-  )
+  or public.is_admin()
 );
 
 drop policy if exists "bills_insert_own" on public.bills;
@@ -243,11 +247,7 @@ on public.feedback for select
 to authenticated
 using (
   user_id = auth.uid()
-  or exists (
-    select 1 from public.profiles admin_profile
-    where admin_profile.id = auth.uid()
-      and admin_profile.role = 'admin'
-  )
+  or public.is_admin()
 );
 
 drop policy if exists "feedback_insert_own" on public.feedback;

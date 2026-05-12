@@ -1032,7 +1032,7 @@ function App() {
     }
 
     if (supabase) {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('transactions')
         .insert({
           user_id: newTransaction.userId,
@@ -1044,10 +1044,8 @@ function App() {
           date: newTransaction.date,
           note: newTransaction.note,
         })
-        .select()
-        .single()
 
-      if (error || !data) {
+      if (error) {
         setTransactionMessage({
           type: 'error',
           text: `Nao consegui salvar no banco. ${supabaseErrorMessage(error)}`,
@@ -1055,10 +1053,9 @@ function App() {
         return
       }
 
-      const savedTransaction = transactionFromRemote(data as RemoteTransaction)
       setTransactions((currentTransactions) => [
-        savedTransaction,
-        ...currentTransactions.filter((transaction) => transaction.id !== savedTransaction.id),
+        newTransaction,
+        ...currentTransactions.filter((transaction) => transaction.id !== newTransaction.id),
       ])
       await loadRemoteFinancialData(authUserId)
     } else {
@@ -1139,7 +1136,7 @@ function App() {
     }))
 
     if (supabase) {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('bills')
         .insert(
           billsToCreate.map((bill) => ({
@@ -1150,9 +1147,8 @@ function App() {
             paid: bill.paid,
           })),
         )
-        .select()
 
-      if (error || !data?.length) {
+      if (error) {
         setBillMessage({
           type: 'error',
           text: `Nao consegui salvar no banco. ${supabaseErrorMessage(error)}`,
@@ -1160,10 +1156,8 @@ function App() {
         return
       }
 
-      setBills((currentBills) => [
-        ...(data as RemoteBill[]).map(billFromRemote),
-        ...currentBills,
-      ])
+      setBills((currentBills) => [...billsToCreate, ...currentBills])
+      await loadRemoteFinancialData(authUserId)
     } else {
       setBills((currentBills) => [...billsToCreate, ...currentBills])
     }
