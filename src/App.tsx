@@ -295,6 +295,14 @@ function mergeUserTransactions(
   return [...remoteTransactions, ...otherUsersTransactions]
 }
 
+function supabaseErrorMessage(error: { message?: string; code?: string } | null) {
+  if (!error) return 'Tente novamente.'
+
+  return [error.message, error.code ? `codigo ${error.code}` : '']
+    .filter(Boolean)
+    .join(' - ')
+}
+
 function billFromRemote(bill: RemoteBill): Bill {
   return {
     id: bill.id,
@@ -999,9 +1007,21 @@ function App() {
       return
     }
 
+    const authUserId = supabase
+      ? (await supabase.auth.getUser()).data.user?.id
+      : currentUser.id
+
+    if (!authUserId) {
+      setTransactionMessage({
+        type: 'error',
+        text: 'Sua sessao expirou. Saia e entre de novo para salvar.',
+      })
+      return
+    }
+
     const newTransaction: Transaction = {
       id: crypto.randomUUID(),
-      userId: currentUser.id,
+      userId: authUserId,
       type: transactionForm.type,
       title: transactionForm.title.trim(),
       amount,
@@ -1030,7 +1050,7 @@ function App() {
       if (error || !data) {
         setTransactionMessage({
           type: 'error',
-          text: `Nao consegui salvar no banco. ${error?.message ?? 'Tente novamente.'}`,
+          text: `Nao consegui salvar no banco. ${supabaseErrorMessage(error)}`,
         })
         return
       }
@@ -1040,7 +1060,7 @@ function App() {
         savedTransaction,
         ...currentTransactions.filter((transaction) => transaction.id !== savedTransaction.id),
       ])
-      await loadRemoteFinancialData(currentUser.id)
+      await loadRemoteFinancialData(authUserId)
     } else {
       setTransactions((currentTransactions) => [newTransaction, ...currentTransactions])
     }
@@ -1088,6 +1108,18 @@ function App() {
       return
     }
 
+    const authUserId = supabase
+      ? (await supabase.auth.getUser()).data.user?.id
+      : currentUser.id
+
+    if (!authUserId) {
+      setBillMessage({
+        type: 'error',
+        text: 'Sua sessao expirou. Saia e entre de novo para salvar.',
+      })
+      return
+    }
+
     const installments = Math.max(1, Math.floor(Number(billForm.installments) || 1))
     const paidInstallments = Math.min(
       installments,
@@ -1096,7 +1128,7 @@ function App() {
     const installmentAmount = Number((amount / installments).toFixed(2))
     const billsToCreate: Bill[] = Array.from({ length: installments }, (_, index) => ({
       id: crypto.randomUUID(),
-      userId: currentUser.id,
+      userId: authUserId,
       title:
         installments > 1
           ? `${billForm.title.trim()} - parcela ${index + 1}/${installments}`
@@ -1123,7 +1155,7 @@ function App() {
       if (error || !data?.length) {
         setBillMessage({
           type: 'error',
-          text: 'Nao consegui salvar no banco. Tente novamente.',
+          text: `Nao consegui salvar no banco. ${supabaseErrorMessage(error)}`,
         })
         return
       }
