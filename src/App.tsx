@@ -283,6 +283,18 @@ function transactionFromRemote(transaction: RemoteTransaction): Transaction {
   }
 }
 
+function mergeUserTransactions(
+  currentTransactions: Transaction[],
+  remoteTransactions: Transaction[],
+  userId: string,
+) {
+  const otherUsersTransactions = currentTransactions.filter(
+    (transaction) => transaction.userId !== userId,
+  )
+
+  return [...remoteTransactions, ...otherUsersTransactions]
+}
+
 function billFromRemote(bill: RemoteBill): Bill {
   return {
     id: bill.id,
@@ -507,8 +519,12 @@ function App() {
     ])
 
     if (!transactionsResponse.error && transactionsResponse.data) {
-      setTransactions(
-        (transactionsResponse.data as RemoteTransaction[]).map(transactionFromRemote),
+      const remoteTransactions = (transactionsResponse.data as RemoteTransaction[]).map(
+        transactionFromRemote,
+      )
+
+      setTransactions((currentTransactions) =>
+        mergeUserTransactions(currentTransactions, remoteTransactions, userId),
       )
     }
 
@@ -1014,15 +1030,17 @@ function App() {
       if (error || !data) {
         setTransactionMessage({
           type: 'error',
-          text: 'Nao consegui salvar no banco. Tente novamente.',
+          text: `Nao consegui salvar no banco. ${error?.message ?? 'Tente novamente.'}`,
         })
         return
       }
 
+      const savedTransaction = transactionFromRemote(data as RemoteTransaction)
       setTransactions((currentTransactions) => [
-        transactionFromRemote(data as RemoteTransaction),
-        ...currentTransactions,
+        savedTransaction,
+        ...currentTransactions.filter((transaction) => transaction.id !== savedTransaction.id),
       ])
+      await loadRemoteFinancialData(currentUser.id)
     } else {
       setTransactions((currentTransactions) => [newTransaction, ...currentTransactions])
     }
@@ -1681,9 +1699,10 @@ function App() {
               <input
                 placeholder="Ex: almoco, salario, mercado"
                 value={transactionForm.title}
-                onChange={(event) =>
+                onChange={(event) => {
+                  setTransactionMessage(null)
                   setTransactionForm({ ...transactionForm, title: event.target.value })
-                }
+                }}
               />
               <input
                 placeholder="Valor"
@@ -1727,12 +1746,13 @@ function App() {
                 inputMode="numeric"
                 maxLength={10}
                 value={transactionForm.date}
-                onChange={(event) =>
+                onChange={(event) => {
+                  setTransactionMessage(null)
                   setTransactionForm({
                     ...transactionForm,
                     date: formatBrDateInput(event.target.value),
                   })
-                }
+                }}
               />
               <textarea
                 placeholder="Descricao opcional"
