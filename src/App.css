@@ -298,6 +298,23 @@
   font-weight: 700;
 }
 
+.form-message {
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.form-message.success {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.form-message.error {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
 .security-note {
   padding: 12px;
   border-radius: 8px;

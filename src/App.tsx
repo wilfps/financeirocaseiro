@@ -24,6 +24,7 @@ type PaymentMethod = 'Cartao de credito' | 'Pix' | 'Debito' | 'Dinheiro'
 type TransactionType = 'income' | 'expense'
 type UserRole = 'user' | 'admin'
 type AuthView = 'login' | 'signup' | 'reset'
+type FormMessage = { type: 'success' | 'error'; text: string } | null
 
 type AppUser = {
   id: string
@@ -220,6 +221,27 @@ function formatBrDateInput(value: string) {
   return parts.join('/')
 }
 
+function parseMoneyValue(value: string) {
+  const cleaned = value.trim().replace(/[^\d,.-]/g, '')
+  if (!cleaned) return 0
+
+  const lastComma = cleaned.lastIndexOf(',')
+  const lastDot = cleaned.lastIndexOf('.')
+  let normalized = cleaned
+
+  if (lastComma > -1 && lastDot > -1) {
+    normalized =
+      lastComma > lastDot
+        ? cleaned.replace(/\./g, '').replace(',', '.')
+        : cleaned.replace(/,/g, '')
+  } else if (lastComma > -1) {
+    normalized = cleaned.replace(',', '.')
+  }
+
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 function getCategories(type: TransactionType) {
   return type === 'income' ? incomeCategories : expenseCategories
 }
@@ -352,6 +374,8 @@ function App() {
   const [receiptDraft, setReceiptDraft] = useState<ReceiptDraft | null>(null)
   const [suggestionText, setSuggestionText] = useState('')
   const [suggestionMessage, setSuggestionMessage] = useState('')
+  const [transactionMessage, setTransactionMessage] = useState<FormMessage>(null)
+  const [billMessage, setBillMessage] = useState<FormMessage>(null)
 
   const currentUser = users.find((user) => user.id === sessionId) ?? null
   const userTransactions = transactions.filter(
@@ -923,9 +947,30 @@ function App() {
   async function addTransaction() {
     if (!currentUser) return
 
-    const amount = Number(transactionForm.amount)
+    setTransactionMessage(null)
+
+    const amount = parseMoneyValue(transactionForm.amount)
     const isoDate = brToIso(transactionForm.date)
-    if (!transactionForm.title.trim() || !amount || !isoDate) return
+    if (!transactionForm.title.trim()) {
+      setTransactionMessage({ type: 'error', text: 'Digite o nome do lancamento.' })
+      return
+    }
+
+    if (amount <= 0) {
+      setTransactionMessage({
+        type: 'error',
+        text: 'Digite um valor valido. Pode usar 10,50 ou R$ 10,50.',
+      })
+      return
+    }
+
+    if (!isoDate) {
+      setTransactionMessage({
+        type: 'error',
+        text: 'Digite a data no formato dd/mm/aaaa.',
+      })
+      return
+    }
 
     const newTransaction: Transaction = {
       id: crypto.randomUUID(),
@@ -955,14 +1000,20 @@ function App() {
         .select()
         .single()
 
-      if (error || !data) return
+      if (error || !data) {
+        setTransactionMessage({
+          type: 'error',
+          text: 'Nao consegui salvar no banco. Tente novamente.',
+        })
+        return
+      }
 
-      setTransactions([
+      setTransactions((currentTransactions) => [
         transactionFromRemote(data as RemoteTransaction),
-        ...transactions,
+        ...currentTransactions,
       ])
     } else {
-      setTransactions([newTransaction, ...transactions])
+      setTransactions((currentTransactions) => [newTransaction, ...currentTransactions])
     }
 
     setTransactionForm({
@@ -974,14 +1025,39 @@ function App() {
       date: todayBr(),
       note: '',
     })
+    setTransactionMessage({
+      type: 'success',
+      text: 'Lancamento salvo. Dashboard atualizado na hora.',
+    })
   }
 
   async function addBill() {
     if (!currentUser) return
 
-    const amount = Number(billForm.amount)
+    setBillMessage(null)
+
+    const amount = parseMoneyValue(billForm.amount)
     const isoDate = brToIso(billForm.dueDate)
-    if (!billForm.title.trim() || !amount || !isoDate) return
+    if (!billForm.title.trim()) {
+      setBillMessage({ type: 'error', text: 'Digite o nome do boleto.' })
+      return
+    }
+
+    if (amount <= 0) {
+      setBillMessage({
+        type: 'error',
+        text: 'Digite um valor valido. Pode usar 100,00 ou R$ 100,00.',
+      })
+      return
+    }
+
+    if (!isoDate) {
+      setBillMessage({
+        type: 'error',
+        text: 'Digite o vencimento no formato dd/mm/aaaa.',
+      })
+      return
+    }
 
     const newBill: Bill = {
       id: crypto.randomUUID(),
@@ -1005,17 +1081,27 @@ function App() {
         .select()
         .single()
 
-      if (error || !data) return
+      if (error || !data) {
+        setBillMessage({
+          type: 'error',
+          text: 'Nao consegui salvar no banco. Tente novamente.',
+        })
+        return
+      }
 
-      setBills([billFromRemote(data as RemoteBill), ...bills])
+      setBills((currentBills) => [billFromRemote(data as RemoteBill), ...currentBills])
     } else {
-      setBills([newBill, ...bills])
+      setBills((currentBills) => [newBill, ...currentBills])
     }
 
     setBillForm({
       title: '',
       amount: '',
       dueDate: todayBr(),
+    })
+    setBillMessage({
+      type: 'success',
+      text: 'Boleto salvo. Dashboard atualizado na hora.',
     })
   }
 
@@ -1556,10 +1642,12 @@ function App() {
               <input
                 placeholder="Valor"
                 inputMode="decimal"
-                type="number"
                 value={transactionForm.amount}
                 onChange={(event) =>
-                  setTransactionForm({ ...transactionForm, amount: event.target.value })
+                  {
+                    setTransactionMessage(null)
+                    setTransactionForm({ ...transactionForm, amount: event.target.value })
+                  }
                 }
               />
               <label className="field-label">
@@ -1610,6 +1698,11 @@ function App() {
               <button className="primary-action full" type="button" onClick={addTransaction}>
                 <Plus size={18} /> Salvar lancamento
               </button>
+              {transactionMessage && (
+                <p className={`form-message ${transactionMessage.type}`}>
+                  {transactionMessage.text}
+                </p>
+              )}
             </article>
 
             <article className="wide-card">
@@ -1663,9 +1756,11 @@ function App() {
               <input
                 placeholder="Valor"
                 inputMode="decimal"
-                type="number"
                 value={billForm.amount}
-                onChange={(event) => setBillForm({ ...billForm, amount: event.target.value })}
+                onChange={(event) => {
+                  setBillMessage(null)
+                  setBillForm({ ...billForm, amount: event.target.value })
+                }}
               />
               <input
                 placeholder="Vencimento (dd/mm/aaaa)"
@@ -1682,6 +1777,11 @@ function App() {
               <button className="primary-action full" type="button" onClick={addBill}>
                 <Plus size={18} /> Salvar boleto
               </button>
+              {billMessage && (
+                <p className={`form-message ${billMessage.type}`}>
+                  {billMessage.text}
+                </p>
+              )}
             </article>
 
             <article className="wide-card">
